@@ -1,0 +1,25 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+server
+
+# Vendor directory
+vendor/
+
+# IDE
+.idea/
+.vscode/
+
+# Test files
+*_test.go
+
+# Debug files
+debug
+*.log
+
+# Git
+.git
+.gitignore
