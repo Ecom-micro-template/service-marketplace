@@ -150,16 +150,18 @@ func (c *CatalogClient) GetAllProducts(ctx context.Context) ([]Product, error) {
 		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
+	// Public catalog endpoint returns {success, message, data} format
 	var result struct {
-		Products []Product `json:"products"`
-		Total    int       `json:"total"`
+		Success bool      `json:"success"`
+		Message string    `json:"message"`
+		Data    []Product `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	c.logger.Info("Fetched products from catalog", zap.Int("count", len(result.Products)), zap.Int("total", result.Total))
-	return result.Products, nil
+	c.logger.Info("Fetched products from catalog", zap.Int("count", len(result.Data)))
+	return result.Data, nil
 }
 
 // GetCategories fetches all categories
