@@ -86,22 +86,30 @@ func (h *OrderHandler) SyncOrders(c *gin.Context) {
 	}
 
 	var req SyncOrdersRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		// Default to last 24 hours
-		req.TimeTo = time.Now().Format(time.RFC3339)
-		req.TimeFrom = time.Now().Add(-24 * time.Hour).Format(time.RFC3339)
+	_ = c.ShouldBindJSON(&req) // Ignore binding errors, use defaults for empty fields
+
+	// Default to last 7 days if not specified
+	var timeFrom, timeTo time.Time
+	if req.TimeFrom == "" {
+		timeFrom = time.Now().Add(-7 * 24 * time.Hour)
+	} else {
+		var err error
+		timeFrom, err = time.Parse(time.RFC3339, req.TimeFrom)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid time_from format, use RFC3339"})
+			return
+		}
 	}
 
-	timeFrom, err := time.Parse(time.RFC3339, req.TimeFrom)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid time_from format, use RFC3339"})
-		return
-	}
-
-	timeTo, err := time.Parse(time.RFC3339, req.TimeTo)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid time_to format, use RFC3339"})
-		return
+	if req.TimeTo == "" {
+		timeTo = time.Now()
+	} else {
+		var err error
+		timeTo, err = time.Parse(time.RFC3339, req.TimeTo)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid time_to format, use RFC3339"})
+			return
+		}
 	}
 
 	count, err := h.service.SyncOrders(c.Request.Context(), connectionID, timeFrom, timeTo)
