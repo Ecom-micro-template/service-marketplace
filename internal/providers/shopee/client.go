@@ -55,15 +55,10 @@ func NewClient(cfg *ClientConfig) (*Client, error) {
 		baseURL = SandboxBaseURL
 	}
 
-	// Strip "shpk" prefix from partner key if present
-	partnerKey := cfg.PartnerKey
-	if strings.HasPrefix(partnerKey, "shpk") {
-		partnerKey = strings.TrimPrefix(partnerKey, "shpk")
-	}
-
+	// Use the partner key as-is (including shpk prefix if present)
 	return &Client{
 		partnerID:  partnerID,
-		partnerKey: partnerKey,
+		partnerKey: cfg.PartnerKey,
 		baseURL:    baseURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
