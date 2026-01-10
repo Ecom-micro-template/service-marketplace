@@ -157,10 +157,13 @@ func (s *ConnectionService) generateState() (string, error) {
 
 // GetAuthURL generates the OAuth authorization URL for a platform
 func (s *ConnectionService) GetAuthURL(ctx context.Context, platform string) (string, string, error) {
-	state, err := s.generateState()
+	randomState, err := s.generateState()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate state: %w", err)
 	}
+
+	// Prefix state with platform name for callback detection
+	state := fmt.Sprintf("%s_%s", platform, randomState)
 
 	var authURL string
 	switch platform {

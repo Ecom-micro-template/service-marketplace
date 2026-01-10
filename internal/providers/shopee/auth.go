@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/niaga-platform/service-marketplace/internal/providers"
@@ -42,18 +43,21 @@ func (p *AuthProvider) GetAuthURL(state string) string {
 
 	sign := p.client.generateSign(path, timestamp)
 
+	// URL-encode the redirect URL
+	encodedRedirect := url.QueryEscape(p.redirectURL)
+
 	authURL := fmt.Sprintf("%s%s?partner_id=%d&timestamp=%d&sign=%s&redirect=%s",
 		p.client.baseURL,
 		path,
 		p.client.partnerID,
 		timestamp,
 		sign,
-		p.redirectURL,
+		encodedRedirect,
 	)
 
 	// Append state if provided (for CSRF protection)
 	if state != "" {
-		authURL += "&state=" + state
+		authURL += "&state=" + url.QueryEscape(state)
 	}
 
 	return authURL
