@@ -20,7 +20,7 @@ import (
 
 const (
 	ProductionBaseURL = "https://partner.shopeemobile.com"
-	SandboxBaseURL    = "https://partner.test-stable.shopeemobile.com"
+	SandboxBaseURL    = "https://openplatform.sandbox.test-stable.shopee.sg"
 )
 
 // Client is the Shopee API client
@@ -55,9 +55,15 @@ func NewClient(cfg *ClientConfig) (*Client, error) {
 		baseURL = SandboxBaseURL
 	}
 
+	// Strip "shpk" prefix from partner key if present
+	partnerKey := cfg.PartnerKey
+	if strings.HasPrefix(partnerKey, "shpk") {
+		partnerKey = strings.TrimPrefix(partnerKey, "shpk")
+	}
+
 	return &Client{
 		partnerID:  partnerID,
-		partnerKey: cfg.PartnerKey,
+		partnerKey: partnerKey,
 		baseURL:    baseURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
