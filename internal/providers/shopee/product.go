@@ -86,17 +86,31 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 		return nil, fmt.Errorf("invalid category_id: %w", err)
 	}
 
+	// Calculate weight in kg (minimum 0.1kg for Shopee)
+	weightKg := product.Weight / 1000
+	if weightKg < 0.1 {
+		weightKg = 0.1
+	}
+
 	// Build request body
 	itemBody := map[string]interface{}{
 		"original_price":   product.OriginalPrice,
 		"description":      product.Description,
 		"description_type": "normal", // Required by Shopee API - "normal" for text only
 		"item_name":        product.Name,
-		"weight":           product.Weight / 1000, // Convert g to kg
+		"weight":           weightKg,
 		"category_id":      categoryID,
 		"item_sku":         product.SKU,
 		"condition":        "NEW",
 		"item_status":      "NORMAL",
+	}
+
+	// Add dimension (required by Shopee for shipping)
+	// Default to 10x10x5 cm if not specified
+	itemBody["dimension"] = map[string]interface{}{
+		"package_length": 10, // cm
+		"package_width":  10, // cm
+		"package_height": 5,  // cm
 	}
 
 	// Add seller_stock - Shopee API v2 requires this format
