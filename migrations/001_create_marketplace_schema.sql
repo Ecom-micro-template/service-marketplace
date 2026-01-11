@@ -91,11 +91,15 @@ CREATE TABLE IF NOT EXISTS marketplace.sync_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     connection_id UUID NOT NULL REFERENCES marketplace.connections(id) ON DELETE CASCADE,
     job_type VARCHAR(50) NOT NULL, -- 'product_push', 'inventory_sync', 'order_import'
+    payload JSONB DEFAULT '{}', -- Job payload data
     status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+    attempts INTEGER DEFAULT 0,
+    max_attempts INTEGER DEFAULT 3,
     total_items INTEGER DEFAULT 0,
     processed_items INTEGER DEFAULT 0,
     failed_items INTEGER DEFAULT 0,
     error_message TEXT,
+    scheduled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
