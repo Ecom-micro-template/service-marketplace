@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/niaga-platform/service-marketplace/internal/providers"
 )
@@ -79,6 +80,12 @@ func (p *ProductProvider) GetCategories(ctx context.Context) ([]providers.Extern
 
 // PushProduct creates a new product on Shopee
 func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.ProductPushRequest) (*providers.ProductPushResponse, error) {
+	// Convert category_id from string to int64 (Shopee requires uint64)
+	categoryID, err := strconv.ParseInt(product.CategoryID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid category_id: %w", err)
+	}
+
 	// Build request body
 	itemBody := map[string]interface{}{
 		"original_price": product.OriginalPrice,
@@ -86,7 +93,7 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 		"item_name":      product.Name,
 		"normal_stock":   product.Stock,
 		"weight":         product.Weight / 1000, // Convert g to kg
-		"category_id":    product.CategoryID,
+		"category_id":    categoryID,
 		"item_sku":       product.SKU,
 		"condition":      "NEW",
 		"item_status":    "NORMAL",
