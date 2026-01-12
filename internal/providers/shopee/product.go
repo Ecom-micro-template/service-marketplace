@@ -268,6 +268,7 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 	}
 
 	// Add images - must upload to Shopee Media Space first
+	// Shopee requires at least 1 image
 	if len(product.Images) > 0 {
 		imageIDs := make([]string, 0, len(product.Images))
 		for _, imageURL := range product.Images {
@@ -275,6 +276,7 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 			imageID, err := p.UploadImageByURL(ctx, imageURL)
 			if err != nil {
 				// Log error but continue with other images
+				fmt.Printf("Warning: failed to upload image %s: %v\n", imageURL, err)
 				continue
 			}
 			if imageID != "" {
@@ -285,24 +287,11 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 			itemBody["image"] = map[string]interface{}{
 				"image_id_list": imageIDs,
 			}
+		} else {
+			return nil, fmt.Errorf("failed to upload any images - Shopee requires at least 1 product image")
 		}
-	}
-
-	// Add dimensions if provided
-	if product.Dimensions != nil {
-		itemBody["dimension"] = map[string]interface{}{
-			"package_length": int(product.Dimensions.Length),
-			"package_width":  int(product.Dimensions.Width),
-			"package_height": int(product.Dimensions.Height),
-		}
-	}
-
-	// Add price info
-	itemBody["price_info"] = []map[string]interface{}{
-		{
-			"original_price": product.OriginalPrice,
-			"current_price":  product.Price,
-		},
+	} else {
+		return nil, fmt.Errorf("no images provided - Shopee requires at least 1 product image")
 	}
 
 	// Add brand - Shopee requires brand for most categories
@@ -340,6 +329,10 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 	}
 
 	itemBody["logistic_info"] = logisticInfo
+
+	// Debug: log the payload being sent
+	debugPayload, _ := json.Marshal(itemBody)
+	fmt.Printf("DEBUG: Shopee add_item payload: %s\n", string(debugPayload))
 
 	req := &Request{
 		Method:   http.MethodPost,
