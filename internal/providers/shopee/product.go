@@ -233,14 +233,23 @@ func isSpamDescription(desc string) bool {
 
 // PushProduct creates a new product on Shopee
 func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.ProductPushRequest) (*providers.ProductPushResponse, error) {
-	// Validate description - Shopee requires meaningful content (min 100 chars, no spam)
-	if len(product.Description) < 100 {
-		return nil, fmt.Errorf("description too short - Shopee requires at least 100 characters (current: %d)", len(product.Description))
+	// Get description and apply Shopee limits (10-1200 characters)
+	description := product.Description
+
+	// Validate minimum length
+	if len(description) < 10 {
+		return nil, fmt.Errorf("description too short - Shopee requires at least 10 characters (current: %d)", len(description))
 	}
 
 	// Check for spam/placeholder patterns (repeated characters)
-	if isSpamDescription(product.Description) {
+	if isSpamDescription(description) {
 		return nil, fmt.Errorf("description appears to be placeholder text - Shopee requires meaningful product descriptions")
+	}
+
+	// Truncate if too long (Shopee max 1200 characters)
+	if len(description) > 1200 {
+		description = description[:1197] + "..."
+		fmt.Printf("Warning: description truncated from %d to 1200 characters\n", len(product.Description))
 	}
 
 	// Convert category_id from string to int64 (Shopee requires uint64)
@@ -258,8 +267,8 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 	// Build request body
 	itemBody := map[string]interface{}{
 		"original_price":   product.OriginalPrice,
-		"description":      product.Description,
-		"description_type": "normal", // Required by Shopee API - "normal" for text only
+		"description":      description, // Use truncated description
+		"description_type": "normal",    // Required by Shopee API - "normal" for text only
 		"item_name":        product.Name,
 		"weight":           weightKg,
 		"category_id":      categoryID,
