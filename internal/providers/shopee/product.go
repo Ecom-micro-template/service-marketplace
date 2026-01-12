@@ -170,6 +170,24 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 		"original_brand_name": brandName,
 	}
 
+	// Add logistic channels - Required by Shopee
+	// For sandbox, use common logistics channel IDs that are typically enabled
+	// These are standard Malaysia logistics IDs for sandbox testing
+	itemBody["logistic_info"] = []map[string]interface{}{
+		{
+			"logistic_id": 80003, // J&T Express (commonly available in MY sandbox)
+			"enabled":     true,
+		},
+		{
+			"logistic_id": 80007, // Pos Laju (commonly available in MY sandbox)
+			"enabled":     true,
+		},
+		{
+			"logistic_id": 80015, // Ninja Van (commonly available in MY sandbox)
+			"enabled":     true,
+		},
+	}
+
 	req := &Request{
 		Method:   http.MethodPost,
 		Path:     AddItemPath,
