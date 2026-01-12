@@ -17,15 +17,18 @@ import (
 
 const (
 	// Product API paths
-	AddItemPath        = "/api/v2/product/add_item"
-	UpdateItemPath     = "/api/v2/product/update_item"
-	DeleteItemPath     = "/api/v2/product/delete_item"
-	GetItemListPath    = "/api/v2/product/get_item_list"
-	GetItemInfoPath    = "/api/v2/product/get_item_base_info"
-	GetCategoryPath    = "/api/v2/product/get_category"
-	UpdateStockPath    = "/api/v2/product/update_stock"
-	UploadImagePath    = "/api/v2/media_space/upload_image"
+	AddItemPath         = "/api/v2/product/add_item"
+	UpdateItemPath      = "/api/v2/product/update_item"
+	DeleteItemPath      = "/api/v2/product/delete_item"
+	GetItemListPath     = "/api/v2/product/get_item_list"
+	GetItemInfoPath     = "/api/v2/product/get_item_base_info"
+	GetCategoryPath     = "/api/v2/product/get_category"
+	UpdateStockPath     = "/api/v2/product/update_stock"
+	UploadImagePath     = "/api/v2/media_space/upload_image"
 	InitVideoUploadPath = "/api/v2/media_space/init_video_upload"
+
+	// Logistics API paths
+	GetLogisticsChannelPath = "/api/v2/logistics/get_channel_list"
 )
 
 // ProductProvider implements product operations for Shopee
@@ -36,6 +39,55 @@ type ProductProvider struct {
 // NewProductProvider creates a new Shopee product provider
 func NewProductProvider(client *Client) *ProductProvider {
 	return &ProductProvider{client: client}
+}
+
+// LogisticsChannel represents a Shopee logistics channel
+type LogisticsChannel struct {
+	LogisticID   int64  `json:"logistics_channel_id"`
+	LogisticName string `json:"logistics_channel_name"`
+	Enabled      bool   `json:"enabled"`
+	CODEnabled   bool   `json:"cod_enabled"`
+}
+
+// GetLogisticsChannels fetches available logistics channels for the shop
+func (p *ProductProvider) GetLogisticsChannels(ctx context.Context) ([]LogisticsChannel, error) {
+	req := &Request{
+		Method:   http.MethodGet,
+		Path:     GetLogisticsChannelPath,
+		NeedAuth: true,
+	}
+
+	var resp struct {
+		BaseResponse
+		Response struct {
+			LogisticsChannelList []struct {
+				LogisticsChannelID   int64  `json:"logistics_channel_id"`
+				LogisticsChannelName string `json:"logistics_channel_name"`
+				Enabled              bool   `json:"enabled"`
+				CODEnabled           bool   `json:"cod_enabled"`
+			} `json:"logistics_channel_list"`
+		} `json:"response"`
+	}
+
+	if err := p.client.Do(ctx, req, &resp); err != nil {
+		return nil, fmt.Errorf("failed to get logistics channels: %w", err)
+	}
+
+	if resp.HasError() {
+		return nil, fmt.Errorf("shopee error: %s", resp.GetError())
+	}
+
+	channels := make([]LogisticsChannel, len(resp.Response.LogisticsChannelList))
+	for i, ch := range resp.Response.LogisticsChannelList {
+		channels[i] = LogisticsChannel{
+			LogisticID:   ch.LogisticsChannelID,
+			LogisticName: ch.LogisticsChannelName,
+			Enabled:      ch.Enabled,
+			CODEnabled:   ch.CODEnabled,
+		}
+	}
+
+	return channels, nil
 }
 
 // UploadImageByURL downloads an image from URL and uploads it to Shopee's Media Space
@@ -265,22 +317,29 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 	}
 
 	// Add logistic channels - Required by Shopee
-	// For sandbox, use common logistics channel IDs that are typically enabled
-	// These are standard Malaysia logistics IDs for sandbox testing
-	itemBody["logistic_info"] = []map[string]interface{}{
-		{
-			"logistic_id": 80003, // J&T Express (commonly available in MY sandbox)
-			"enabled":     true,
-		},
-		{
-			"logistic_id": 80007, // Pos Laju (commonly available in MY sandbox)
-			"enabled":     true,
-		},
-		{
-			"logistic_id": 80015, // Ninja Van (commonly available in MY sandbox)
-			"enabled":     true,
-		},
+	// Fetch available logistics channels from the shop
+	logisticsChannels, err := p.GetLogisticsChannels(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get logistics channels: %w", err)
 	}
+
+	// Build logistics info using only enabled channels from the shop
+	logisticInfo := make([]map[string]interface{}, 0)
+	for _, ch := range logisticsChannels {
+		if ch.Enabled {
+			logisticInfo = append(logisticInfo, map[string]interface{}{
+				"logistic_id": ch.LogisticID,
+				"enabled":     true,
+			})
+		}
+	}
+
+	// If no enabled channels found, return error
+	if len(logisticInfo) == 0 {
+		return nil, fmt.Errorf("no enabled logistics channels found for this shop - please enable shipping channels in Shopee Seller Center")
+	}
+
+	itemBody["logistic_info"] = logisticInfo
 
 	req := &Request{
 		Method:   http.MethodPost,
