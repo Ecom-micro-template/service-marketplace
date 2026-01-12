@@ -11,14 +11,15 @@ import (
 
 const (
 	// Product API paths
-	AddItemPath     = "/api/v2/product/add_item"
-	UpdateItemPath  = "/api/v2/product/update_item"
-	DeleteItemPath  = "/api/v2/product/delete_item"
-	GetItemListPath = "/api/v2/product/get_item_list"
-	GetItemInfoPath = "/api/v2/product/get_item_base_info"
-	GetCategoryPath = "/api/v2/product/get_category"
-	UpdateStockPath = "/api/v2/product/update_stock"
-	UploadImagePath = "/api/v2/media_space/upload_image"
+	AddItemPath        = "/api/v2/product/add_item"
+	UpdateItemPath     = "/api/v2/product/update_item"
+	DeleteItemPath     = "/api/v2/product/delete_item"
+	GetItemListPath    = "/api/v2/product/get_item_list"
+	GetItemInfoPath    = "/api/v2/product/get_item_base_info"
+	GetCategoryPath    = "/api/v2/product/get_category"
+	UpdateStockPath    = "/api/v2/product/update_stock"
+	UploadImagePath    = "/api/v2/media_space/upload_image"
+	InitVideoUploadPath = "/api/v2/media_space/init_video_upload"
 )
 
 // ProductProvider implements product operations for Shopee
@@ -29,6 +30,38 @@ type ProductProvider struct {
 // NewProductProvider creates a new Shopee product provider
 func NewProductProvider(client *Client) *ProductProvider {
 	return &ProductProvider{client: client}
+}
+
+// UploadImageByURL uploads an image from URL to Shopee's Media Space
+// Returns the image_id that can be used in product creation
+func (p *ProductProvider) UploadImageByURL(ctx context.Context, imageURL string) (string, error) {
+	req := &Request{
+		Method: http.MethodPost,
+		Path:   UploadImagePath,
+		Body: map[string]interface{}{
+			"image_url": imageURL,
+		},
+		NeedAuth: true,
+	}
+
+	var resp struct {
+		BaseResponse
+		Response struct {
+			ImageInfo struct {
+				ImageID string `json:"image_id"`
+			} `json:"image_info"`
+		} `json:"response"`
+	}
+
+	if err := p.client.Do(ctx, req, &resp); err != nil {
+		return "", fmt.Errorf("failed to upload image: %w", err)
+	}
+
+	if resp.HasError() {
+		return "", fmt.Errorf("shopee image upload error: %s", resp.GetError())
+	}
+
+	return resp.Response.ImageInfo.ImageID, nil
 }
 
 // GetCategories fetches marketplace categories
@@ -134,12 +167,25 @@ func (p *ProductProvider) PushProduct(ctx context.Context, product *providers.Pr
 		},
 	}
 
-	// Add images
+	// Add images - must upload to Shopee Media Space first
 	if len(product.Images) > 0 {
-		imageInfo := map[string]interface{}{
-			"image_id_list": product.Images,
+		imageIDs := make([]string, 0, len(product.Images))
+		for _, imageURL := range product.Images {
+			// Upload each image to Shopee and get image_id
+			imageID, err := p.UploadImageByURL(ctx, imageURL)
+			if err != nil {
+				// Log error but continue with other images
+				continue
+			}
+			if imageID != "" {
+				imageIDs = append(imageIDs, imageID)
+			}
 		}
-		itemBody["image"] = imageInfo
+		if len(imageIDs) > 0 {
+			itemBody["image"] = map[string]interface{}{
+				"image_id_list": imageIDs,
+			}
+		}
 	}
 
 	// Add dimensions if provided
