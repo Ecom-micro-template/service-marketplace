@@ -60,7 +60,7 @@ func (h *ProductHandler) GetMappedProducts(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"products": mappings,
+		"mappings": mappings,
 		"total":    total,
 		"page":     filter.Page,
 		"pageSize": filter.PageSize,
