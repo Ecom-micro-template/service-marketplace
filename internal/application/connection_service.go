@@ -12,11 +12,11 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/Ecom-micro-template/service-marketplace/internal/models"
+	"github.com/Ecom-micro-template/service-marketplace/internal/domain"
 	"github.com/Ecom-micro-template/service-marketplace/internal/providers"
 	"github.com/Ecom-micro-template/service-marketplace/internal/providers/shopee"
 	"github.com/Ecom-micro-template/service-marketplace/internal/providers/tiktok"
-	"github.com/Ecom-micro-template/service-marketplace/internal/repository"
+	"github.com/Ecom-micro-template/service-marketplace/internal/infrastructure/persistence"
 	"github.com/Ecom-micro-template/service-marketplace/internal/utils"
 )
 

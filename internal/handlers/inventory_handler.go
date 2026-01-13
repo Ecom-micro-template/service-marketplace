@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/Ecom-micro-template/service-marketplace/internal/providers"
-	"github.com/Ecom-micro-template/service-marketplace/internal/services"
+	"github.com/Ecom-micro-template/service-marketplace/internal/application"
 )
 
 // InventoryHandler handles inventory sync API requests

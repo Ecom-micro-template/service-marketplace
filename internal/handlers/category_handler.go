@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/Ecom-micro-template/service-marketplace/internal/models"
-	"github.com/Ecom-micro-template/service-marketplace/internal/services"
+	"github.com/Ecom-micro-template/service-marketplace/internal/domain"
+	"github.com/Ecom-micro-template/service-marketplace/internal/application"
 )
 
 // CategoryHandler handles category mapping API requests

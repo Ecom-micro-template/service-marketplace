@@ -17,9 +17,9 @@ import (
 	"github.com/Ecom-micro-template/service-marketplace/internal/config"
 	"github.com/Ecom-micro-template/service-marketplace/internal/events"
 	"github.com/Ecom-micro-template/service-marketplace/internal/handlers"
-	"github.com/Ecom-micro-template/service-marketplace/internal/repository"
+	"github.com/Ecom-micro-template/service-marketplace/internal/infrastructure/persistence"
 	"github.com/Ecom-micro-template/service-marketplace/internal/routes"
-	"github.com/Ecom-micro-template/service-marketplace/internal/services"
+	"github.com/Ecom-micro-template/service-marketplace/internal/application"
 
 	"github.com/nats-io/nats.go"
 	libauth "github.com/Ecom-micro-template/lib-common-go/auth"
