@@ -3,9 +3,9 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 
-	libauth "github.com/niaga-platform/lib-common/auth"
-	libmiddleware "github.com/niaga-platform/lib-common/middleware"
-	"github.com/niaga-platform/service-marketplace/internal/handlers"
+	libauth "github.com/Ecom-micro-template/lib-common-go/auth"
+	libmiddleware "github.com/Ecom-micro-template/lib-common-go/middleware"
+	"github.com/Ecom-micro-template/service-marketplace/internal/handlers"
 )
 
 // RouteConfig holds configuration for routes

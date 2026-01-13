@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/niaga-platform/service-marketplace/internal/providers"
+	"github.com/Ecom-micro-template/service-marketplace/internal/providers"
 )
 
 const (

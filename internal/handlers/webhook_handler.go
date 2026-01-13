@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/niaga-platform/service-marketplace/internal/services"
+	"github.com/Ecom-micro-template/service-marketplace/internal/services"
 )
 
 // WebhookHandler handles incoming webhooks from marketplaces

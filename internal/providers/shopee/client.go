@@ -15,7 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
-	shopeedomain "github.com/niaga-platform/service-marketplace/internal/domain/shopee"
+	shopeedomain "github.com/Ecom-micro-template/service-marketplace/internal/domain/shopee"
 )
 
 const (

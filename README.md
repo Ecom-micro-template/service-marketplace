@@ -15,7 +15,7 @@ Marketplace integration microservice for Shopee and TikTok Shop.
 ### 1. Run Database Migration
 
 ```bash
-psql -U postgres -d kilang_batik -f migrations/001_create_marketplace_schema.sql
+psql -U postgres -d ecommerce_db -f migrations/001_create_marketplace_schema.sql
 ```
 
 ### 2. Configure Environment
@@ -175,4 +175,4 @@ curl -X POST http://localhost:8009/api/v1/admin/marketplace/shopee/auth-url \
 
 ## License
 
-Proprietary - Kilang Desa Murni Batik
+Proprietary - ecommerce Desa Murni Batik

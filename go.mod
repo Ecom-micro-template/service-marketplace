@@ -1,4 +1,4 @@
-module github.com/niaga-platform/service-marketplace
+module github.com/Ecom-micro-template/service-marketplace
 
 go 1.24.0
 
@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/nats-io/nats.go v1.37.0
-	github.com/niaga-platform/lib-common v0.0.0
+	github.com/Ecom-micro-template/lib-common-go v0.0.0
 	github.com/spf13/viper v1.19.0
 	go.uber.org/zap v1.27.0
 	gorm.io/datatypes v1.2.1
@@ -78,4 +78,4 @@ require (
 	gorm.io/driver/postgres v1.5.9 // indirect
 )
 
-replace github.com/niaga-platform/lib-common => ../lib-common
+replace github.com/Ecom-micro-template/lib-common-go => ../lib-common

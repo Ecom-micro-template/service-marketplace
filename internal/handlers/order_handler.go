@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/niaga-platform/service-marketplace/internal/models"
-	"github.com/niaga-platform/service-marketplace/internal/services"
+	"github.com/Ecom-micro-template/service-marketplace/internal/models"
+	"github.com/Ecom-micro-template/service-marketplace/internal/services"
 )
 
 // OrderHandler handles order sync API requests

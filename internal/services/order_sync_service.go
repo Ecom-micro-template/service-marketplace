@@ -11,13 +11,13 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
 
-	"github.com/niaga-platform/service-marketplace/internal/clients"
-	"github.com/niaga-platform/service-marketplace/internal/models"
-	"github.com/niaga-platform/service-marketplace/internal/providers"
-	"github.com/niaga-platform/service-marketplace/internal/providers/shopee"
-	"github.com/niaga-platform/service-marketplace/internal/providers/tiktok"
-	"github.com/niaga-platform/service-marketplace/internal/repository"
-	"github.com/niaga-platform/service-marketplace/internal/utils"
+	"github.com/Ecom-micro-template/service-marketplace/internal/clients"
+	"github.com/Ecom-micro-template/service-marketplace/internal/models"
+	"github.com/Ecom-micro-template/service-marketplace/internal/providers"
+	"github.com/Ecom-micro-template/service-marketplace/internal/providers/shopee"
+	"github.com/Ecom-micro-template/service-marketplace/internal/providers/tiktok"
+	"github.com/Ecom-micro-template/service-marketplace/internal/repository"
+	"github.com/Ecom-micro-template/service-marketplace/internal/utils"
 )
 
 // OrderSyncService handles order synchronization

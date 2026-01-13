@@ -13,20 +13,20 @@ import (
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
-	"github.com/niaga-platform/service-marketplace/internal/clients"
-	"github.com/niaga-platform/service-marketplace/internal/config"
-	"github.com/niaga-platform/service-marketplace/internal/events"
-	"github.com/niaga-platform/service-marketplace/internal/handlers"
-	"github.com/niaga-platform/service-marketplace/internal/repository"
-	"github.com/niaga-platform/service-marketplace/internal/routes"
-	"github.com/niaga-platform/service-marketplace/internal/services"
+	"github.com/Ecom-micro-template/service-marketplace/internal/clients"
+	"github.com/Ecom-micro-template/service-marketplace/internal/config"
+	"github.com/Ecom-micro-template/service-marketplace/internal/events"
+	"github.com/Ecom-micro-template/service-marketplace/internal/handlers"
+	"github.com/Ecom-micro-template/service-marketplace/internal/repository"
+	"github.com/Ecom-micro-template/service-marketplace/internal/routes"
+	"github.com/Ecom-micro-template/service-marketplace/internal/services"
 
 	"github.com/nats-io/nats.go"
-	libauth "github.com/niaga-platform/lib-common/auth"
-	libdb "github.com/niaga-platform/lib-common/database"
-	liblogger "github.com/niaga-platform/lib-common/logger"
-	libmiddleware "github.com/niaga-platform/lib-common/middleware"
-	"github.com/niaga-platform/lib-common/monitoring"
+	libauth "github.com/Ecom-micro-template/lib-common-go/auth"
+	libdb "github.com/Ecom-micro-template/lib-common-go/database"
+	liblogger "github.com/Ecom-micro-template/lib-common-go/logger"
+	libmiddleware "github.com/Ecom-micro-template/lib-common-go/middleware"
+	"github.com/Ecom-micro-template/lib-common-go/monitoring"
 )
 
 func main() {

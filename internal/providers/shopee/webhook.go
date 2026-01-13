@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	shopeedomain "github.com/niaga-platform/service-marketplace/internal/domain/shopee"
-	"github.com/niaga-platform/service-marketplace/internal/providers"
+	shopeedomain "github.com/Ecom-micro-template/service-marketplace/internal/domain/shopee"
+	"github.com/Ecom-micro-template/service-marketplace/internal/providers"
 )
 
 // WebhookEventType represents the type of Shopee webhook event.
