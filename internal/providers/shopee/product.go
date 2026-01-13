@@ -493,6 +493,158 @@ func (p *ProductProvider) UpdateInventory(ctx context.Context, updates []provide
 	return nil
 }
 
+// ShopeeItem represents a product item from Shopee
+type ShopeeItem struct {
+	ItemID      int64  `json:"item_id"`
+	ItemName    string `json:"item_name"`
+	ItemSKU     string `json:"item_sku"`
+	ItemStatus  string `json:"item_status"`
+	UpdateTime  int64  `json:"update_time"`
+	CreateTime  int64  `json:"create_time"`
+}
+
+// ShopeeItemDetail represents detailed product info from Shopee
+type ShopeeItemDetail struct {
+	ItemID        int64    `json:"item_id"`
+	ItemName      string   `json:"item_name"`
+	ItemSKU       string   `json:"item_sku"`
+	ItemStatus    string   `json:"item_status"`
+	Description   string   `json:"description"`
+	CategoryID    int64    `json:"category_id"`
+	OriginalPrice float64  `json:"original_price"`
+	Images        []string `json:"images"`
+	Stock         int      `json:"stock"`
+	UpdateTime    int64    `json:"update_time"`
+	CreateTime    int64    `json:"create_time"`
+}
+
+// GetItemList fetches list of items from Shopee shop
+func (p *ProductProvider) GetItemList(ctx context.Context, offset, pageSize int, itemStatus string) ([]ShopeeItem, int, bool, error) {
+	query := map[string]string{
+		"offset":    strconv.Itoa(offset),
+		"page_size": strconv.Itoa(pageSize),
+	}
+	if itemStatus != "" {
+		query["item_status"] = itemStatus // NORMAL, BANNED, DELETED, UNLIST
+	}
+
+	req := &Request{
+		Method:   http.MethodGet,
+		Path:     GetItemListPath,
+		Query:    query,
+		NeedAuth: true,
+	}
+
+	var resp struct {
+		BaseResponse
+		Response struct {
+			Item []struct {
+				ItemID     int64  `json:"item_id"`
+				ItemStatus string `json:"item_status"`
+				UpdateTime int64  `json:"update_time"`
+			} `json:"item"`
+			TotalCount  int  `json:"total_count"`
+			HasNextPage bool `json:"has_next_page"`
+		} `json:"response"`
+	}
+
+	if err := p.client.Do(ctx, req, &resp); err != nil {
+		return nil, 0, false, fmt.Errorf("failed to get item list: %w", err)
+	}
+
+	if resp.HasError() {
+		return nil, 0, false, fmt.Errorf("shopee error: %s", resp.GetError())
+	}
+
+	items := make([]ShopeeItem, len(resp.Response.Item))
+	for i, item := range resp.Response.Item {
+		items[i] = ShopeeItem{
+			ItemID:     item.ItemID,
+			ItemStatus: item.ItemStatus,
+			UpdateTime: item.UpdateTime,
+		}
+	}
+
+	return items, resp.Response.TotalCount, resp.Response.HasNextPage, nil
+}
+
+// GetItemBaseInfo fetches detailed info for items by their IDs
+func (p *ProductProvider) GetItemBaseInfo(ctx context.Context, itemIDs []int64) ([]ShopeeItemDetail, error) {
+	if len(itemIDs) == 0 {
+		return nil, nil
+	}
+
+	// Build comma-separated item IDs
+	itemIDList := ""
+	for i, id := range itemIDs {
+		if i > 0 {
+			itemIDList += ","
+		}
+		itemIDList += strconv.FormatInt(id, 10)
+	}
+
+	req := &Request{
+		Method: http.MethodGet,
+		Path:   GetItemInfoPath,
+		Query: map[string]string{
+			"item_id_list": itemIDList,
+		},
+		NeedAuth: true,
+	}
+
+	var resp struct {
+		BaseResponse
+		Response struct {
+			ItemList []struct {
+				ItemID        int64   `json:"item_id"`
+				ItemName      string  `json:"item_name"`
+				ItemSKU       string  `json:"item_sku"`
+				ItemStatus    string  `json:"item_status"`
+				Description   string  `json:"description"`
+				CategoryID    int64   `json:"category_id"`
+				OriginalPrice float64 `json:"original_price"`
+				Image         struct {
+					ImageURLList []string `json:"image_url_list"`
+				} `json:"image"`
+				StockInfoV2 struct {
+					SummaryInfo struct {
+						TotalAvailableStock int `json:"total_available_stock"`
+					} `json:"summary_info"`
+				} `json:"stock_info_v2"`
+				UpdateTime int64 `json:"update_time"`
+				CreateTime int64 `json:"create_time"`
+			} `json:"item_list"`
+		} `json:"response"`
+	}
+
+	if err := p.client.Do(ctx, req, &resp); err != nil {
+		return nil, fmt.Errorf("failed to get item base info: %w", err)
+	}
+
+	if resp.HasError() {
+		return nil, fmt.Errorf("shopee error: %s", resp.GetError())
+	}
+
+	items := make([]ShopeeItemDetail, len(resp.Response.ItemList))
+	for i, item := range resp.Response.ItemList {
+		items[i] = ShopeeItemDetail{
+			ItemID:        item.ItemID,
+			ItemName:      item.ItemName,
+			ItemSKU:       item.ItemSKU,
+			ItemStatus:    item.ItemStatus,
+			Description:   item.Description,
+			CategoryID:    item.CategoryID,
+			OriginalPrice: item.OriginalPrice,
+			Images:        item.Image.ImageURLList,
+			Stock:         item.StockInfoV2.SummaryInfo.TotalAvailableStock,
+			UpdateTime:    item.UpdateTime,
+			CreateTime:    item.CreateTime,
+		}
+	}
+
+	return items, nil
+}
+
 // GetInventory fetches inventory levels for products
 func (p *ProductProvider) GetInventory(ctx context.Context, externalProductIDs []string) ([]providers.InventoryItem, error) {
 	// Build comma-separated item IDs

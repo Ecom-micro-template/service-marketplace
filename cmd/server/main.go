@@ -92,6 +92,7 @@ func main() {
 	categoryMappingRepo := repository.NewCategoryMappingRepository(db)
 	syncJobRepo := repository.NewSyncJobRepository(db)
 	orderRepo := repository.NewMarketplaceOrderRepository(db)
+	importedProductRepo := repository.NewImportedProductRepository(db)
 
 	// Initialize catalog client
 	catalogClient := clients.NewCatalogClient(cfg.Services.CatalogURL, logger)
@@ -130,6 +131,7 @@ func main() {
 		productMappingRepo,
 		categoryMappingRepo,
 		syncJobRepo,
+		importedProductRepo,
 		catalogClient,
 		&services.ProductSyncServiceConfig{
 			ShopeePartnerID:  cfg.Shopee.PartnerID,

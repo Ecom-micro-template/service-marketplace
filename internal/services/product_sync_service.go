@@ -27,13 +27,14 @@ var (
 
 // ProductSyncService handles product synchronization
 type ProductSyncService struct {
-	connectionRepo      *repository.ConnectionRepository
-	productMappingRepo  *repository.ProductMappingRepository
-	categoryMappingRepo *repository.CategoryMappingRepository
-	syncJobRepo         *repository.SyncJobRepository
-	catalogClient       *clients.CatalogClient
-	encryptor           *utils.Encryptor
-	logger              *zap.Logger
+	connectionRepo        *repository.ConnectionRepository
+	productMappingRepo    *repository.ProductMappingRepository
+	categoryMappingRepo   *repository.CategoryMappingRepository
+	syncJobRepo           *repository.SyncJobRepository
+	importedProductRepo   *repository.ImportedProductRepository
+	catalogClient         *clients.CatalogClient
+	encryptor             *utils.Encryptor
+	logger                *zap.Logger
 
 	// Provider factories
 	shopeeClientFactory func(accessToken string, shopID int64) (*shopee.Client, *shopee.ProductProvider)
@@ -56,6 +57,7 @@ func NewProductSyncService(
 	productMappingRepo *repository.ProductMappingRepository,
 	categoryMappingRepo *repository.CategoryMappingRepository,
 	syncJobRepo *repository.SyncJobRepository,
+	importedProductRepo *repository.ImportedProductRepository,
 	catalogClient *clients.CatalogClient,
 	cfg *ProductSyncServiceConfig,
 	logger *zap.Logger,
@@ -70,13 +72,14 @@ func NewProductSyncService(
 	}
 
 	svc := &ProductSyncService{
-		connectionRepo:      connectionRepo,
-		productMappingRepo:  productMappingRepo,
-		categoryMappingRepo: categoryMappingRepo,
-		syncJobRepo:         syncJobRepo,
-		catalogClient:       catalogClient,
-		encryptor:           encryptor,
-		logger:              logger,
+		connectionRepo:        connectionRepo,
+		productMappingRepo:    productMappingRepo,
+		categoryMappingRepo:   categoryMappingRepo,
+		syncJobRepo:           syncJobRepo,
+		importedProductRepo:   importedProductRepo,
+		catalogClient:         catalogClient,
+		encryptor:             encryptor,
+		logger:                logger,
 	}
 
 	// Set up provider factories
@@ -403,5 +406,180 @@ func (s *ProductSyncService) UpdateProductMapping(ctx context.Context, mappingID
 
 // DeleteProductMapping deletes a product mapping
 func (s *ProductSyncService) DeleteProductMapping(ctx context.Context, mappingID uuid.UUID) error {
+	return s.productMappingRepo.Delete(ctx, mappingID)
+}
+
+// ImportProducts imports products from a marketplace and stores them locally
+func (s *ProductSyncService) ImportProducts(ctx context.Context, connectionID uuid.UUID) (int, error) {
+	conn, err := s.connectionRepo.GetByID(ctx, connectionID)
+	if err != nil {
+		return 0, ErrConnectionNotFound
+	}
+
+	// Decrypt access token
+	accessToken := conn.AccessToken
+	if s.encryptor != nil {
+		accessToken, err = s.encryptor.Decrypt(conn.AccessToken)
+		if err != nil {
+			return 0, fmt.Errorf("failed to decrypt token: %w", err)
+		}
+	}
+
+	switch conn.Platform {
+	case "shopee":
+		return s.importShopeeProducts(ctx, conn, accessToken)
+	case "tiktok":
+		// TODO: Implement TikTok import
+		return 0, fmt.Errorf("tiktok import not yet implemented")
+	default:
+		return 0, ErrInvalidPlatform
+	}
+}
+
+// importShopeeProducts imports products from Shopee
+func (s *ProductSyncService) importShopeeProducts(ctx context.Context, conn *models.Connection, accessToken string) (int, error) {
+	shopID, _ := strconv.ParseInt(conn.ShopID, 10, 64)
+	_, productProvider := s.shopeeClientFactory(accessToken, shopID)
+
+	var allItems []shopee.ShopeeItem
+	offset := 0
+	pageSize := 50
+
+	// Fetch all items with pagination
+	for {
+		items, _, hasMore, err := productProvider.GetItemList(ctx, offset, pageSize, "NORMAL")
+		if err != nil {
+			return 0, fmt.Errorf("failed to get item list: %w", err)
+		}
+		allItems = append(allItems, items...)
+
+		if !hasMore {
+			break
+		}
+		offset += pageSize
+	}
+
+	if len(allItems) == 0 {
+		return 0, nil
+	}
+
+	// Get item details in batches of 50
+	var importedProducts []models.ImportedProduct
+	for i := 0; i < len(allItems); i += 50 {
+		end := i + 50
+		if end > len(allItems) {
+			end = len(allItems)
+		}
+
+		// Extract item IDs
+		itemIDs := make([]int64, end-i)
+		for j, item := range allItems[i:end] {
+			itemIDs[j] = item.ItemID
+		}
+
+		// Get details
+		details, err := productProvider.GetItemBaseInfo(ctx, itemIDs)
+		if err != nil {
+			s.logger.Warn("Failed to get item details", zap.Error(err))
+			continue
+		}
+
+		// Convert to ImportedProduct
+		for _, detail := range details {
+			imageURL := ""
+			if len(detail.Images) > 0 {
+				imageURL = detail.Images[0]
+			}
+
+			importedProducts = append(importedProducts, models.ImportedProduct{
+				ConnectionID:      conn.ID,
+				ExternalProductID: strconv.FormatInt(detail.ItemID, 10),
+				ExternalSKU:       detail.ItemSKU,
+				Name:              detail.ItemName,
+				Description:       detail.Description,
+				Price:             detail.OriginalPrice,
+				Stock:             detail.Stock,
+				CategoryID:        strconv.FormatInt(detail.CategoryID, 10),
+				Status:            detail.ItemStatus,
+				ImageURL:          imageURL,
+			})
+		}
+	}
+
+	// Upsert imported products
+	if err := s.importedProductRepo.UpsertBatch(ctx, importedProducts); err != nil {
+		return 0, fmt.Errorf("failed to save imported products: %w", err)
+	}
+
+	return len(importedProducts), nil
+}
+
+// GetImportedProducts retrieves imported products for a connection
+func (s *ProductSyncService) GetImportedProducts(ctx context.Context, connectionID uuid.UUID, filter *models.ImportedProductFilter) ([]models.ImportedProduct, int64, error) {
+	return s.importedProductRepo.GetByConnectionID(ctx, connectionID, filter)
+}
+
+// CreateManualMapping creates a manual mapping between an imported product and an internal product
+func (s *ProductSyncService) CreateManualMapping(ctx context.Context, connectionID uuid.UUID, importedProductID uuid.UUID, internalProductID uuid.UUID) (*models.ProductMapping, error) {
+	// Verify connection exists
+	_, err := s.connectionRepo.GetByID(ctx, connectionID)
+	if err != nil {
+		return nil, ErrConnectionNotFound
+	}
+
+	// Get imported product
+	importedProduct, err := s.importedProductRepo.GetByID(ctx, importedProductID)
+	if err != nil {
+		return nil, fmt.Errorf("imported product not found: %w", err)
+	}
+
+	// Check if this internal product is already mapped to another external product
+	existingMapping, _ := s.productMappingRepo.GetByConnectionAndInternalProduct(ctx, connectionID, internalProductID)
+	if existingMapping != nil {
+		return nil, fmt.Errorf("internal product is already mapped to external product %s", existingMapping.ExternalProductID)
+	}
+
+	// Check if this external product is already mapped
+	existingByExternal, _ := s.productMappingRepo.GetByConnectionAndExternalProduct(ctx, connectionID, importedProduct.ExternalProductID)
+	if existingByExternal != nil {
+		return nil, fmt.Errorf("external product is already mapped to internal product %s", existingByExternal.InternalProductID)
+	}
+
+	// Create the mapping
+	mapping := &models.ProductMapping{
+		ConnectionID:      connectionID,
+		InternalProductID: internalProductID,
+		ExternalProductID: importedProduct.ExternalProductID,
+		ExternalSKU:       importedProduct.ExternalSKU,
+		SyncStatus:        models.SyncStatusSynced,
+	}
+
+	if err := s.productMappingRepo.Create(ctx, mapping); err != nil {
+		return nil, fmt.Errorf("failed to create mapping: %w", err)
+	}
+
+	// Mark imported product as mapped
+	if err := s.importedProductRepo.SetMapped(ctx, importedProductID, internalProductID); err != nil {
+		s.logger.Warn("Failed to mark imported product as mapped", zap.Error(err))
+	}
+
+	return mapping, nil
+}
+
+// DeleteManualMapping deletes a manual mapping and marks the imported product as unmapped
+func (s *ProductSyncService) DeleteManualMapping(ctx context.Context, mappingID uuid.UUID) error {
+	// Get the mapping first
+	mapping, err := s.productMappingRepo.GetByID(ctx, mappingID)
+	if err != nil {
+		return ErrProductMappingNotFound
+	}
+
+	// Find and unmap the imported product
+	importedProduct, _ := s.importedProductRepo.GetByExternalProductID(ctx, mapping.ConnectionID, mapping.ExternalProductID)
+	if importedProduct != nil {
+		s.importedProductRepo.SetUnmapped(ctx, importedProduct.ID)
+	}
+
+	// Delete the mapping
 	return s.productMappingRepo.Delete(ctx, mappingID)
 }

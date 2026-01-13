@@ -56,6 +56,12 @@ func SetupRoutes(router *gin.Engine, cfg *RouteConfig) {
 			connections.PUT("/:id/products/:mapping_id", cfg.ProductHandler.UpdateProductMapping)
 			connections.DELETE("/:id/products/:mapping_id", cfg.ProductHandler.DeleteProductMapping)
 
+			// Import & Map routes (for linking existing marketplace products to admin products)
+			connections.POST("/:id/products/import", cfg.ProductHandler.ImportProducts)
+			connections.GET("/:id/products/imported", cfg.ProductHandler.GetImportedProducts)
+			connections.POST("/:id/products/map", cfg.ProductHandler.CreateManualMapping)
+			connections.DELETE("/:id/products/map/:mapping_id", cfg.ProductHandler.DeleteManualMapping)
+
 			// Category mapping routes
 			connections.GET("/:id/categories/external", cfg.CategoryHandler.GetExternalCategories)
 			connections.GET("/:id/categories", cfg.CategoryHandler.GetCategoryMappings)

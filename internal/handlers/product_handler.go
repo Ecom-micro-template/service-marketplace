@@ -151,3 +151,136 @@ func (h *ProductHandler) DeleteProductMapping(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Mapping deleted"})
 }
+
+// ImportProducts imports products from a marketplace
+// POST /api/v1/admin/marketplace/connections/:id/products/import
+func (h *ProductHandler) ImportProducts(c *gin.Context) {
+	connectionID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid connection ID"})
+		return
+	}
+
+	count, err := h.service.ImportProducts(c.Request.Context(), connectionID)
+	if err != nil {
+		h.logger.Error("Failed to import products", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":          "Products imported successfully",
+		"products_imported": count,
+	})
+}
+
+// GetImportedProducts retrieves imported products for a connection
+// GET /api/v1/admin/marketplace/connections/:id/products/imported
+func (h *ProductHandler) GetImportedProducts(c *gin.Context) {
+	connectionID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid connection ID"})
+		return
+	}
+
+	filter := &models.ImportedProductFilter{
+		Page:     1,
+		PageSize: 20,
+	}
+
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
+			filter.Page = page
+		}
+	}
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil && pageSize > 0 {
+			filter.PageSize = pageSize
+		}
+	}
+	if search := c.Query("search"); search != "" {
+		filter.Search = search
+	}
+	if isMapped := c.Query("is_mapped"); isMapped != "" {
+		mapped := isMapped == "true"
+		filter.IsMapped = &mapped
+	}
+
+	products, total, err := h.service.GetImportedProducts(c.Request.Context(), connectionID, filter)
+	if err != nil {
+		h.logger.Error("Failed to get imported products", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get imported products"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"products":  products,
+		"total":     total,
+		"page":      filter.Page,
+		"page_size": filter.PageSize,
+	})
+}
+
+// CreateManualMappingRequest represents the request to create a manual mapping
+type CreateManualMappingRequest struct {
+	ImportedProductID string `json:"imported_product_id" binding:"required"`
+	InternalProductID string `json:"internal_product_id" binding:"required"`
+}
+
+// CreateManualMapping creates a manual mapping between an imported product and an internal product
+// POST /api/v1/admin/marketplace/connections/:id/products/map
+func (h *ProductHandler) CreateManualMapping(c *gin.Context) {
+	connectionID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid connection ID"})
+		return
+	}
+
+	var req CreateManualMappingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	importedProductID, err := uuid.Parse(req.ImportedProductID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid imported product ID"})
+		return
+	}
+
+	internalProductID, err := uuid.Parse(req.InternalProductID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid internal product ID"})
+		return
+	}
+
+	mapping, err := h.service.CreateManualMapping(c.Request.Context(), connectionID, importedProductID, internalProductID)
+	if err != nil {
+		h.logger.Error("Failed to create manual mapping", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Mapping created successfully",
+		"mapping": mapping,
+	})
+}
+
+// DeleteManualMapping deletes a manual mapping
+// DELETE /api/v1/admin/marketplace/connections/:id/products/map/:mapping_id
+func (h *ProductHandler) DeleteManualMapping(c *gin.Context) {
+	mappingID, err := uuid.Parse(c.Param("mapping_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid mapping ID"})
+		return
+	}
+
+	if err := h.service.DeleteManualMapping(c.Request.Context(), mappingID); err != nil {
+		h.logger.Error("Failed to delete manual mapping", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Mapping deleted"})
+}
