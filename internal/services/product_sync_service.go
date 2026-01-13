@@ -511,6 +511,19 @@ func (s *ProductSyncService) importShopeeProducts(ctx context.Context, conn *mod
 		return 0, fmt.Errorf("failed to save imported products: %w", err)
 	}
 
+	// Sync is_mapped status with existing product_mappings
+	// This handles products that were previously pushed/mapped
+	for _, product := range importedProducts {
+		existingMapping, _ := s.productMappingRepo.GetByConnectionAndExternalProduct(ctx, conn.ID, product.ExternalProductID)
+		if existingMapping != nil {
+			// Product already has a mapping, update imported_product status
+			importedProduct, _ := s.importedProductRepo.GetByExternalProductID(ctx, conn.ID, product.ExternalProductID)
+			if importedProduct != nil && !importedProduct.IsMapped {
+				s.importedProductRepo.SetMapped(ctx, importedProduct.ID, existingMapping.InternalProductID)
+			}
+		}
+	}
+
 	return len(importedProducts), nil
 }
 
