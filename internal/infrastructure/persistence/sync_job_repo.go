@@ -1,4 +1,4 @@
-package repository
+package persistence
 
 import (
 	"context"
@@ -20,13 +20,13 @@ func NewSyncJobRepository(db *gorm.DB) *SyncJobRepository {
 }
 
 // Create creates a new sync job
-func (r *SyncJobRepository) Create(ctx context.Context, job *models.SyncJob) error {
+func (r *SyncJobRepository) Create(ctx context.Context, job *domain.SyncJob) error {
 	return r.db.WithContext(ctx).Create(job).Error
 }
 
 // GetByID retrieves a sync job by ID
-func (r *SyncJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.SyncJob, error) {
-	var job models.SyncJob
+func (r *SyncJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.SyncJob, error) {
+	var job domain.SyncJob
 	err := r.db.WithContext(ctx).First(&job, "id = ?", id).Error
 	if err != nil {
 		return nil, err
@@ -35,11 +35,11 @@ func (r *SyncJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 }
 
 // GetByConnectionID retrieves jobs for a connection with optional filters
-func (r *SyncJobRepository) GetByConnectionID(ctx context.Context, connectionID uuid.UUID, filter *models.SyncJobFilter) ([]models.SyncJob, int64, error) {
-	var jobs []models.SyncJob
+func (r *SyncJobRepository) GetByConnectionID(ctx context.Context, connectionID uuid.UUID, filter *domain.SyncJobFilter) ([]domain.SyncJob, int64, error) {
+	var jobs []domain.SyncJob
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&models.SyncJob{}).Where("connection_id = ?", connectionID)
+	query := r.db.WithContext(ctx).Model(&domain.SyncJob{}).Where("connection_id = ?", connectionID)
 
 	if filter != nil {
 		if filter.JobType != "" {
@@ -76,11 +76,11 @@ func (r *SyncJobRepository) GetByConnectionID(ctx context.Context, connectionID 
 }
 
 // GetPendingJobs retrieves pending jobs for processing
-func (r *SyncJobRepository) GetPendingJobs(ctx context.Context, limit int) ([]models.SyncJob, error) {
-	var jobs []models.SyncJob
+func (r *SyncJobRepository) GetPendingJobs(ctx context.Context, limit int) ([]domain.SyncJob, error) {
+	var jobs []domain.SyncJob
 	now := time.Now()
 	err := r.db.WithContext(ctx).
-		Where("status = ? AND scheduled_at <= ? AND attempts < max_attempts", models.JobStatusPending, now).
+		Where("status = ? AND scheduled_at <= ? AND attempts < max_attempts", domain.JobStatusPending, now).
 		Order("scheduled_at ASC").
 		Limit(limit).
 		Find(&jobs).Error
@@ -88,17 +88,17 @@ func (r *SyncJobRepository) GetPendingJobs(ctx context.Context, limit int) ([]mo
 }
 
 // GetFailedJobs retrieves failed jobs that can be retried
-func (r *SyncJobRepository) GetFailedJobs(ctx context.Context, connectionID uuid.UUID) ([]models.SyncJob, error) {
-	var jobs []models.SyncJob
+func (r *SyncJobRepository) GetFailedJobs(ctx context.Context, connectionID uuid.UUID) ([]domain.SyncJob, error) {
+	var jobs []domain.SyncJob
 	err := r.db.WithContext(ctx).
-		Where("connection_id = ? AND status = ? AND attempts < max_attempts", connectionID, models.JobStatusFailed).
+		Where("connection_id = ? AND status = ? AND attempts < max_attempts", connectionID, domain.JobStatusFailed).
 		Order("created_at DESC").
 		Find(&jobs).Error
 	return jobs, err
 }
 
 // Update updates a sync job
-func (r *SyncJobRepository) Update(ctx context.Context, job *models.SyncJob) error {
+func (r *SyncJobRepository) Update(ctx context.Context, job *domain.SyncJob) error {
 	return r.db.WithContext(ctx).Save(job).Error
 }
 
@@ -106,10 +106,10 @@ func (r *SyncJobRepository) Update(ctx context.Context, job *models.SyncJob) err
 func (r *SyncJobRepository) MarkProcessing(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
 	return r.db.WithContext(ctx).
-		Model(&models.SyncJob{}).
+		Model(&domain.SyncJob{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":     models.JobStatusProcessing,
+			"status":     domain.JobStatusProcessing,
 			"started_at": now,
 			"attempts":   gorm.Expr("attempts + 1"),
 		}).Error
@@ -119,10 +119,10 @@ func (r *SyncJobRepository) MarkProcessing(ctx context.Context, id uuid.UUID) er
 func (r *SyncJobRepository) MarkCompleted(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
 	return r.db.WithContext(ctx).
-		Model(&models.SyncJob{}).
+		Model(&domain.SyncJob{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":       models.JobStatusCompleted,
+			"status":       domain.JobStatusCompleted,
 			"completed_at": now,
 		}).Error
 }
@@ -130,23 +130,23 @@ func (r *SyncJobRepository) MarkCompleted(ctx context.Context, id uuid.UUID) err
 // MarkFailed marks a job as failed with error message
 func (r *SyncJobRepository) MarkFailed(ctx context.Context, id uuid.UUID, errorMessage string) error {
 	return r.db.WithContext(ctx).
-		Model(&models.SyncJob{}).
+		Model(&domain.SyncJob{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":        models.JobStatusFailed,
+			"status":        domain.JobStatusFailed,
 			"error_message": errorMessage,
 		}).Error
 }
 
 // Delete deletes a sync job
 func (r *SyncJobRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&models.SyncJob{}, "id = ?", id).Error
+	return r.db.WithContext(ctx).Delete(&domain.SyncJob{}, "id = ?", id).Error
 }
 
 // DeleteOldCompleted deletes completed jobs older than specified hours
 func (r *SyncJobRepository) DeleteOldCompleted(ctx context.Context, olderThanHours int) error {
 	cutoff := time.Now().Add(-time.Duration(olderThanHours) * time.Hour)
 	return r.db.WithContext(ctx).
-		Where("status = ? AND completed_at < ?", models.JobStatusCompleted, cutoff).
-		Delete(&models.SyncJob{}).Error
+		Where("status = ? AND completed_at < ?", domain.JobStatusCompleted, cutoff).
+		Delete(&domain.SyncJob{}).Error
 }

@@ -87,12 +87,12 @@ func main() {
 	)
 
 	// Initialize repositories
-	connectionRepo := repository.NewConnectionRepository(db)
-	productMappingRepo := repository.NewProductMappingRepository(db)
-	categoryMappingRepo := repository.NewCategoryMappingRepository(db)
-	syncJobRepo := repository.NewSyncJobRepository(db)
-	orderRepo := repository.NewMarketplaceOrderRepository(db)
-	importedProductRepo := repository.NewImportedProductRepository(db)
+	connectionRepo := persistence.NewConnectionRepository(db)
+	productMappingRepo := persistence.NewProductMappingRepository(db)
+	categoryMappingRepo := persistence.NewCategoryMappingRepository(db)
+	syncJobRepo := persistence.NewSyncJobRepository(db)
+	orderRepo := persistence.NewMarketplaceOrderRepository(db)
+	importedProductRepo := persistence.NewImportedProductRepository(db)
 
 	// Initialize catalog client
 	catalogClient := clients.NewCatalogClient(cfg.Services.CatalogURL, logger)

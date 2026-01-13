@@ -36,7 +36,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 		return
 	}
 
-	filter := &models.MarketplaceOrderFilter{
+	filter := &domain.MarketplaceOrderFilter{
 		Page:     1,
 		PageSize: 20,
 	}

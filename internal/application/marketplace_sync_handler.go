@@ -21,9 +21,9 @@ import (
 // MarketplaceSyncHandler handles syncing products to connected marketplaces
 // when products are updated in the admin panel.
 type MarketplaceSyncHandler struct {
-	connectionRepo      *repository.ConnectionRepository
-	productMappingRepo  *repository.ProductMappingRepository
-	categoryMappingRepo *repository.CategoryMappingRepository
+	connectionRepo      *persistence.ConnectionRepository
+	productMappingRepo  *persistence.ProductMappingRepository
+	categoryMappingRepo *persistence.CategoryMappingRepository
 	catalogClient       *clients.CatalogClient
 	eventPublisher      *events.Publisher
 	encryptor           *utils.Encryptor
@@ -49,9 +49,9 @@ type MarketplaceSyncHandlerConfig struct {
 
 // NewMarketplaceSyncHandler creates a new marketplace sync handler
 func NewMarketplaceSyncHandler(
-	connectionRepo *repository.ConnectionRepository,
-	productMappingRepo *repository.ProductMappingRepository,
-	categoryMappingRepo *repository.CategoryMappingRepository,
+	connectionRepo *persistence.ConnectionRepository,
+	productMappingRepo *persistence.ProductMappingRepository,
+	categoryMappingRepo *persistence.CategoryMappingRepository,
 	catalogClient *clients.CatalogClient,
 	eventPublisher *events.Publisher,
 	cfg *MarketplaceSyncHandlerConfig,
@@ -199,7 +199,7 @@ func (h *MarketplaceSyncHandler) HandleProductDeleted(event *events.ProductDelet
 }
 
 // syncProductUpdateToMarketplace syncs a product update to a specific marketplace
-func (h *MarketplaceSyncHandler) syncProductUpdateToMarketplace(ctx context.Context, mapping *models.ProductMapping, product *clients.Product) {
+func (h *MarketplaceSyncHandler) syncProductUpdateToMarketplace(ctx context.Context, mapping *domain.ProductMapping, product *clients.Product) {
 	// Get connection details
 	conn, err := h.connectionRepo.GetByID(ctx, mapping.ConnectionID)
 	if err != nil || !conn.IsActive {
@@ -210,12 +210,12 @@ func (h *MarketplaceSyncHandler) syncProductUpdateToMarketplace(ctx context.Cont
 	}
 
 	// Mark as syncing
-	h.productMappingRepo.UpdateSyncStatus(ctx, mapping.ID, models.SyncStatusPending, "")
+	h.productMappingRepo.UpdateSyncStatus(ctx, mapping.ID, domain.SyncStatusPending, "")
 
 	var syncErr error
 	defer func() {
 		if syncErr != nil {
-			h.productMappingRepo.UpdateSyncStatus(ctx, mapping.ID, models.SyncStatusError, syncErr.Error())
+			h.productMappingRepo.UpdateSyncStatus(ctx, mapping.ID, domain.SyncStatusError, syncErr.Error())
 			if h.eventPublisher != nil {
 				h.eventPublisher.PublishSyncFailed(&events.SyncFailedEvent{
 					ConnectionID: mapping.ConnectionID,
@@ -227,7 +227,7 @@ func (h *MarketplaceSyncHandler) syncProductUpdateToMarketplace(ctx context.Cont
 				})
 			}
 		} else {
-			h.productMappingRepo.UpdateSyncStatus(ctx, mapping.ID, models.SyncStatusSynced, "")
+			h.productMappingRepo.UpdateSyncStatus(ctx, mapping.ID, domain.SyncStatusSynced, "")
 			if h.eventPublisher != nil {
 				h.eventPublisher.PublishSyncCompleted(&events.SyncCompletedEvent{
 					ConnectionID: mapping.ConnectionID,
@@ -249,7 +249,7 @@ func (h *MarketplaceSyncHandler) syncProductUpdateToMarketplace(ctx context.Cont
 }
 
 // updateProductOnShopee updates a product on Shopee
-func (h *MarketplaceSyncHandler) updateProductOnShopee(ctx context.Context, conn *models.Connection, mapping *models.ProductMapping, product *clients.Product) error {
+func (h *MarketplaceSyncHandler) updateProductOnShopee(ctx context.Context, conn *domain.Connection, mapping *domain.ProductMapping, product *clients.Product) error {
 	// Decrypt access token
 	accessToken := conn.AccessToken
 	if h.encryptor != nil {
@@ -303,7 +303,7 @@ func (h *MarketplaceSyncHandler) updateProductOnShopee(ctx context.Context, conn
 }
 
 // syncInventoryToMarketplace syncs inventory to a specific marketplace
-func (h *MarketplaceSyncHandler) syncInventoryToMarketplace(ctx context.Context, mapping *models.ProductMapping, quantity int) error {
+func (h *MarketplaceSyncHandler) syncInventoryToMarketplace(ctx context.Context, mapping *domain.ProductMapping, quantity int) error {
 	conn, err := h.connectionRepo.GetByID(ctx, mapping.ConnectionID)
 	if err != nil || !conn.IsActive {
 		return fmt.Errorf("connection not found or inactive")
@@ -318,7 +318,7 @@ func (h *MarketplaceSyncHandler) syncInventoryToMarketplace(ctx context.Context,
 }
 
 // updateInventoryOnShopee updates inventory on Shopee
-func (h *MarketplaceSyncHandler) updateInventoryOnShopee(ctx context.Context, conn *models.Connection, mapping *models.ProductMapping, quantity int) error {
+func (h *MarketplaceSyncHandler) updateInventoryOnShopee(ctx context.Context, conn *domain.Connection, mapping *domain.ProductMapping, quantity int) error {
 	accessToken := conn.AccessToken
 	if h.encryptor != nil {
 		var err error
@@ -363,7 +363,7 @@ func (h *MarketplaceSyncHandler) updateInventoryOnShopee(ctx context.Context, co
 }
 
 // deleteProductFromMarketplace deletes a product from a specific marketplace
-func (h *MarketplaceSyncHandler) deleteProductFromMarketplace(ctx context.Context, mapping *models.ProductMapping) {
+func (h *MarketplaceSyncHandler) deleteProductFromMarketplace(ctx context.Context, mapping *domain.ProductMapping) {
 	conn, err := h.connectionRepo.GetByID(ctx, mapping.ConnectionID)
 	if err != nil || !conn.IsActive {
 		h.logger.Warn("Connection not found or inactive for deletion",
@@ -399,7 +399,7 @@ func (h *MarketplaceSyncHandler) deleteProductFromMarketplace(ctx context.Contex
 }
 
 // deleteProductOnShopee deletes a product from Shopee
-func (h *MarketplaceSyncHandler) deleteProductOnShopee(ctx context.Context, conn *models.Connection, mapping *models.ProductMapping) error {
+func (h *MarketplaceSyncHandler) deleteProductOnShopee(ctx context.Context, conn *domain.Connection, mapping *domain.ProductMapping) error {
 	accessToken := conn.AccessToken
 	if h.encryptor != nil {
 		var err error

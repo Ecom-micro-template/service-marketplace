@@ -29,7 +29,7 @@ var (
 
 // ConnectionService handles marketplace connection operations
 type ConnectionService struct {
-	repo         *repository.ConnectionRepository
+	repo         *persistence.ConnectionRepository
 	encryptor    *utils.Encryptor
 	shopeeClient *shopee.Client
 	shopeeAuth   *shopee.AuthProvider
@@ -52,7 +52,7 @@ type ConnectionServiceConfig struct {
 
 // NewConnectionService creates a new ConnectionService
 func NewConnectionService(
-	repo *repository.ConnectionRepository,
+	repo *persistence.ConnectionRepository,
 	cfg *ConnectionServiceConfig,
 	logger *zap.Logger,
 ) (*ConnectionService, error) {
@@ -108,13 +108,13 @@ func NewConnectionService(
 }
 
 // GetAllConnections retrieves all marketplace connections
-func (s *ConnectionService) GetAllConnections(ctx context.Context) ([]models.ConnectionResponse, error) {
+func (s *ConnectionService) GetAllConnections(ctx context.Context) ([]domain.ConnectionResponse, error) {
 	connections, err := s.repo.GetAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connections: %w", err)
 	}
 
-	responses := make([]models.ConnectionResponse, len(connections))
+	responses := make([]domain.ConnectionResponse, len(connections))
 	for i, conn := range connections {
 		responses[i] = *conn.ToResponse()
 	}
@@ -123,13 +123,13 @@ func (s *ConnectionService) GetAllConnections(ctx context.Context) ([]models.Con
 }
 
 // GetActiveConnections retrieves all active connections
-func (s *ConnectionService) GetActiveConnections(ctx context.Context) ([]models.ConnectionResponse, error) {
+func (s *ConnectionService) GetActiveConnections(ctx context.Context) ([]domain.ConnectionResponse, error) {
 	connections, err := s.repo.GetActiveConnections(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connections: %w", err)
 	}
 
-	responses := make([]models.ConnectionResponse, len(connections))
+	responses := make([]domain.ConnectionResponse, len(connections))
 	for i, conn := range connections {
 		responses[i] = *conn.ToResponse()
 	}
@@ -138,7 +138,7 @@ func (s *ConnectionService) GetActiveConnections(ctx context.Context) ([]models.
 }
 
 // GetConnection retrieves a connection by ID
-func (s *ConnectionService) GetConnection(ctx context.Context, id uuid.UUID) (*models.ConnectionResponse, error) {
+func (s *ConnectionService) GetConnection(ctx context.Context, id uuid.UUID) (*domain.ConnectionResponse, error) {
 	conn, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, ErrConnectionNotFound
@@ -185,7 +185,7 @@ func (s *ConnectionService) GetAuthURL(ctx context.Context, platform string) (st
 }
 
 // HandleShopeeCallback handles the OAuth callback from Shopee
-func (s *ConnectionService) HandleShopeeCallback(ctx context.Context, code string, shopID int64) (*models.ConnectionResponse, error) {
+func (s *ConnectionService) HandleShopeeCallback(ctx context.Context, code string, shopID int64) (*domain.ConnectionResponse, error) {
 	if s.shopeeAuth == nil {
 		return nil, errors.New("Shopee integration not configured")
 	}
@@ -229,7 +229,7 @@ func (s *ConnectionService) HandleShopeeCallback(ctx context.Context, code strin
 	}
 
 	// Create new connection
-	conn := &models.Connection{
+	conn := &domain.Connection{
 		Platform:       "shopee",
 		ShopID:         tokenResp.ShopID,
 		ShopName:       shopInfo.ShopName,
@@ -247,7 +247,7 @@ func (s *ConnectionService) HandleShopeeCallback(ctx context.Context, code strin
 }
 
 // HandleTikTokCallback handles the OAuth callback from TikTok
-func (s *ConnectionService) HandleTikTokCallback(ctx context.Context, code string) (*models.ConnectionResponse, error) {
+func (s *ConnectionService) HandleTikTokCallback(ctx context.Context, code string) (*domain.ConnectionResponse, error) {
 	if s.tiktokAuth == nil {
 		return nil, errors.New("TikTok integration not configured")
 	}
@@ -282,7 +282,7 @@ func (s *ConnectionService) HandleTikTokCallback(ctx context.Context, code strin
 	}
 
 	// Create new connection
-	conn := &models.Connection{
+	conn := &domain.Connection{
 		Platform:       "tiktok",
 		ShopID:         tokenResp.ShopID,
 		ShopName:       tokenResp.ShopName,

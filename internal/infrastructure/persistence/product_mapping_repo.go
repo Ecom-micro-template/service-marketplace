@@ -1,4 +1,4 @@
-package repository
+package persistence
 
 import (
 	"context"
@@ -19,18 +19,18 @@ func NewProductMappingRepository(db *gorm.DB) *ProductMappingRepository {
 }
 
 // Create creates a new product mapping
-func (r *ProductMappingRepository) Create(ctx context.Context, mapping *models.ProductMapping) error {
+func (r *ProductMappingRepository) Create(ctx context.Context, mapping *domain.ProductMapping) error {
 	return r.db.WithContext(ctx).Create(mapping).Error
 }
 
 // CreateBatch creates multiple product mappings in a batch
-func (r *ProductMappingRepository) CreateBatch(ctx context.Context, mappings []models.ProductMapping) error {
+func (r *ProductMappingRepository) CreateBatch(ctx context.Context, mappings []domain.ProductMapping) error {
 	return r.db.WithContext(ctx).CreateInBatches(mappings, 100).Error
 }
 
 // GetByID retrieves a product mapping by ID
-func (r *ProductMappingRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.ProductMapping, error) {
-	var mapping models.ProductMapping
+func (r *ProductMappingRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.ProductMapping, error) {
+	var mapping domain.ProductMapping
 	err := r.db.WithContext(ctx).First(&mapping, "id = ?", id).Error
 	if err != nil {
 		return nil, err
@@ -39,8 +39,8 @@ func (r *ProductMappingRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 }
 
 // GetByConnectionAndInternalProduct retrieves a mapping by connection and internal product ID
-func (r *ProductMappingRepository) GetByConnectionAndInternalProduct(ctx context.Context, connectionID, internalProductID uuid.UUID) (*models.ProductMapping, error) {
-	var mapping models.ProductMapping
+func (r *ProductMappingRepository) GetByConnectionAndInternalProduct(ctx context.Context, connectionID, internalProductID uuid.UUID) (*domain.ProductMapping, error) {
+	var mapping domain.ProductMapping
 	err := r.db.WithContext(ctx).
 		Where("connection_id = ? AND internal_product_id = ?", connectionID, internalProductID).
 		First(&mapping).Error
@@ -51,8 +51,8 @@ func (r *ProductMappingRepository) GetByConnectionAndInternalProduct(ctx context
 }
 
 // GetByConnectionAndExternalProduct retrieves a mapping by connection and external product ID
-func (r *ProductMappingRepository) GetByConnectionAndExternalProduct(ctx context.Context, connectionID uuid.UUID, externalProductID string) (*models.ProductMapping, error) {
-	var mapping models.ProductMapping
+func (r *ProductMappingRepository) GetByConnectionAndExternalProduct(ctx context.Context, connectionID uuid.UUID, externalProductID string) (*domain.ProductMapping, error) {
+	var mapping domain.ProductMapping
 	err := r.db.WithContext(ctx).
 		Where("connection_id = ? AND external_product_id = ?", connectionID, externalProductID).
 		First(&mapping).Error
@@ -63,11 +63,11 @@ func (r *ProductMappingRepository) GetByConnectionAndExternalProduct(ctx context
 }
 
 // GetByConnectionID retrieves all mappings for a connection
-func (r *ProductMappingRepository) GetByConnectionID(ctx context.Context, connectionID uuid.UUID, filter *models.ProductMappingFilter) ([]models.ProductMapping, int64, error) {
-	var mappings []models.ProductMapping
+func (r *ProductMappingRepository) GetByConnectionID(ctx context.Context, connectionID uuid.UUID, filter *domain.ProductMappingFilter) ([]domain.ProductMapping, int64, error) {
+	var mappings []domain.ProductMapping
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&models.ProductMapping{}).Where("connection_id = ?", connectionID)
+	query := r.db.WithContext(ctx).Model(&domain.ProductMapping{}).Where("connection_id = ?", connectionID)
 
 	if filter != nil {
 		if filter.SyncStatus != "" {
@@ -106,8 +106,8 @@ func (r *ProductMappingRepository) GetByConnectionID(ctx context.Context, connec
 }
 
 // GetByInternalProductID retrieves all mappings for an internal product across all connections
-func (r *ProductMappingRepository) GetByInternalProductID(ctx context.Context, internalProductID uuid.UUID) ([]models.ProductMapping, error) {
-	var mappings []models.ProductMapping
+func (r *ProductMappingRepository) GetByInternalProductID(ctx context.Context, internalProductID uuid.UUID) ([]domain.ProductMapping, error) {
+	var mappings []domain.ProductMapping
 	err := r.db.WithContext(ctx).
 		Preload("Connection").
 		Where("internal_product_id = ?", internalProductID).
@@ -116,7 +116,7 @@ func (r *ProductMappingRepository) GetByInternalProductID(ctx context.Context, i
 }
 
 // Update updates a product mapping
-func (r *ProductMappingRepository) Update(ctx context.Context, mapping *models.ProductMapping) error {
+func (r *ProductMappingRepository) Update(ctx context.Context, mapping *domain.ProductMapping) error {
 	return r.db.WithContext(ctx).Save(mapping).Error
 }
 
@@ -126,43 +126,43 @@ func (r *ProductMappingRepository) UpdateSyncStatus(ctx context.Context, id uuid
 		"sync_status": status,
 		"sync_error":  errorMessage,
 	}
-	if status == models.SyncStatusSynced {
+	if status == domain.SyncStatusSynced {
 		updates["last_synced_at"] = gorm.Expr("NOW()")
 		updates["sync_error"] = ""
 	}
 	return r.db.WithContext(ctx).
-		Model(&models.ProductMapping{}).
+		Model(&domain.ProductMapping{}).
 		Where("id = ?", id).
 		Updates(updates).Error
 }
 
 // Delete deletes a product mapping
 func (r *ProductMappingRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&models.ProductMapping{}, "id = ?", id).Error
+	return r.db.WithContext(ctx).Delete(&domain.ProductMapping{}, "id = ?", id).Error
 }
 
 // DeleteByConnectionID deletes all mappings for a connection
 func (r *ProductMappingRepository) DeleteByConnectionID(ctx context.Context, connectionID uuid.UUID) error {
 	return r.db.WithContext(ctx).
 		Where("connection_id = ?", connectionID).
-		Delete(&models.ProductMapping{}).Error
+		Delete(&domain.ProductMapping{}).Error
 }
 
 // GetPendingMappings retrieves mappings that need syncing
-func (r *ProductMappingRepository) GetPendingMappings(ctx context.Context, connectionID uuid.UUID, limit int) ([]models.ProductMapping, error) {
-	var mappings []models.ProductMapping
+func (r *ProductMappingRepository) GetPendingMappings(ctx context.Context, connectionID uuid.UUID, limit int) ([]domain.ProductMapping, error) {
+	var mappings []domain.ProductMapping
 	err := r.db.WithContext(ctx).
-		Where("connection_id = ? AND sync_status = ?", connectionID, models.SyncStatusPending).
+		Where("connection_id = ? AND sync_status = ?", connectionID, domain.SyncStatusPending).
 		Limit(limit).
 		Find(&mappings).Error
 	return mappings, err
 }
 
 // GetErrorMappings retrieves mappings that have sync errors
-func (r *ProductMappingRepository) GetErrorMappings(ctx context.Context, connectionID uuid.UUID) ([]models.ProductMapping, error) {
-	var mappings []models.ProductMapping
+func (r *ProductMappingRepository) GetErrorMappings(ctx context.Context, connectionID uuid.UUID) ([]domain.ProductMapping, error) {
+	var mappings []domain.ProductMapping
 	err := r.db.WithContext(ctx).
-		Where("connection_id = ? AND sync_status = ?", connectionID, models.SyncStatusError).
+		Where("connection_id = ? AND sync_status = ?", connectionID, domain.SyncStatusError).
 		Find(&mappings).Error
 	return mappings, err
 }

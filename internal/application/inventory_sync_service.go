@@ -25,8 +25,8 @@ var (
 
 // InventorySyncService handles inventory synchronization
 type InventorySyncService struct {
-	connectionRepo     *repository.ConnectionRepository
-	productMappingRepo *repository.ProductMappingRepository
+	connectionRepo     *persistence.ConnectionRepository
+	productMappingRepo *persistence.ProductMappingRepository
 	encryptor          *utils.Encryptor
 	publisher          *events.Publisher
 	logger             *zap.Logger
@@ -50,8 +50,8 @@ type InventorySyncServiceConfig struct {
 
 // NewInventorySyncService creates a new InventorySyncService
 func NewInventorySyncService(
-	connectionRepo *repository.ConnectionRepository,
-	productMappingRepo *repository.ProductMappingRepository,
+	connectionRepo *persistence.ConnectionRepository,
+	productMappingRepo *persistence.ProductMappingRepository,
 	publisher *events.Publisher,
 	cfg *InventorySyncServiceConfig,
 	logger *zap.Logger,
@@ -123,7 +123,7 @@ func (s *InventorySyncService) HandleProductDeleted(event *events.ProductDeleted
 }
 
 // syncInventoryForMapping syncs inventory to a single marketplace
-func (s *InventorySyncService) syncInventoryForMapping(ctx context.Context, mapping *models.ProductMapping, quantity int) {
+func (s *InventorySyncService) syncInventoryForMapping(ctx context.Context, mapping *domain.ProductMapping, quantity int) {
 	// Get connection
 	conn, err := s.connectionRepo.GetByID(ctx, mapping.ConnectionID)
 	if err != nil {
@@ -177,7 +177,7 @@ func (s *InventorySyncService) syncInventoryForMapping(ctx context.Context, mapp
 	s.publishSyncCompleted(conn, mapping)
 }
 
-func (s *InventorySyncService) updateShopeeInventory(ctx context.Context, conn *models.Connection, mapping *models.ProductMapping, accessToken string, quantity int) error {
+func (s *InventorySyncService) updateShopeeInventory(ctx context.Context, conn *domain.Connection, mapping *domain.ProductMapping, accessToken string, quantity int) error {
 	shopID, _ := strconv.ParseInt(conn.ShopID, 10, 64)
 
 	client, _ := shopee.NewClient(&shopee.ClientConfig{
@@ -192,7 +192,7 @@ func (s *InventorySyncService) updateShopeeInventory(ctx context.Context, conn *
 	return provider.UpdateStock(ctx, mapping.ExternalProductID, quantity)
 }
 
-func (s *InventorySyncService) updateTikTokInventory(ctx context.Context, conn *models.Connection, mapping *models.ProductMapping, accessToken string, quantity int) error {
+func (s *InventorySyncService) updateTikTokInventory(ctx context.Context, conn *domain.Connection, mapping *domain.ProductMapping, accessToken string, quantity int) error {
 	client := tiktok.NewClient(&tiktok.ClientConfig{
 		AppKey:    s.tiktokAppKey,
 		AppSecret: s.tiktokAppSecret,
@@ -204,7 +204,7 @@ func (s *InventorySyncService) updateTikTokInventory(ctx context.Context, conn *
 	return provider.UpdateStock(ctx, mapping.ExternalProductID, mapping.ExternalSKU, quantity)
 }
 
-func (s *InventorySyncService) publishSyncCompleted(conn *models.Connection, mapping *models.ProductMapping) {
+func (s *InventorySyncService) publishSyncCompleted(conn *domain.Connection, mapping *domain.ProductMapping) {
 	if s.publisher == nil {
 		return
 	}
@@ -217,7 +217,7 @@ func (s *InventorySyncService) publishSyncCompleted(conn *models.Connection, map
 	})
 }
 
-func (s *InventorySyncService) publishSyncFailed(conn *models.Connection, mapping *models.ProductMapping, errMsg string) {
+func (s *InventorySyncService) publishSyncFailed(conn *domain.Connection, mapping *domain.ProductMapping, errMsg string) {
 	if s.publisher == nil {
 		return
 	}

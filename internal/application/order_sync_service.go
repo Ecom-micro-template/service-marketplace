@@ -22,8 +22,8 @@ import (
 
 // OrderSyncService handles order synchronization
 type OrderSyncService struct {
-	connectionRepo *repository.ConnectionRepository
-	orderRepo      *repository.MarketplaceOrderRepository
+	connectionRepo *persistence.ConnectionRepository
+	orderRepo      *persistence.MarketplaceOrderRepository
 	orderClient    *clients.OrderClient
 	encryptor      *utils.Encryptor
 	logger         *zap.Logger
@@ -47,8 +47,8 @@ type OrderSyncServiceConfig struct {
 
 // NewOrderSyncService creates a new OrderSyncService
 func NewOrderSyncService(
-	connectionRepo *repository.ConnectionRepository,
-	orderRepo *repository.MarketplaceOrderRepository,
+	connectionRepo *persistence.ConnectionRepository,
+	orderRepo *persistence.MarketplaceOrderRepository,
 	orderClient *clients.OrderClient,
 	cfg *OrderSyncServiceConfig,
 	logger *zap.Logger,
@@ -77,7 +77,7 @@ func NewOrderSyncService(
 }
 
 // GetOrders retrieves marketplace orders for a connection
-func (s *OrderSyncService) GetOrders(ctx context.Context, connectionID uuid.UUID, filter *models.MarketplaceOrderFilter) ([]models.MarketplaceOrder, int64, error) {
+func (s *OrderSyncService) GetOrders(ctx context.Context, connectionID uuid.UUID, filter *domain.MarketplaceOrderFilter) ([]domain.MarketplaceOrder, int64, error) {
 	return s.orderRepo.GetByConnectionID(ctx, connectionID, filter)
 }
 
@@ -165,7 +165,7 @@ func (s *OrderSyncService) SyncOrders(ctx context.Context, connectionID uuid.UUI
 	return importedCount, nil
 }
 
-func (s *OrderSyncService) importOrder(ctx context.Context, conn *models.Connection, order *providers.ExternalOrder) error {
+func (s *OrderSyncService) importOrder(ctx context.Context, conn *domain.Connection, order *providers.ExternalOrder) error {
 	// Check if order already exists
 	existing, _ := s.orderRepo.GetByExternalOrderID(ctx, conn.ID, order.ExternalOrderID)
 	if existing != nil {
@@ -173,7 +173,7 @@ func (s *OrderSyncService) importOrder(ctx context.Context, conn *models.Connect
 		existing.Status = order.Status
 		// Update shipping info if tracking available
 		if order.TrackingNumber != "" {
-			shippingInfo := models.ShippingInfoJSON{
+			shippingInfo := domain.ShippingInfoJSON{
 				RecipientName:  order.ShippingAddress.Name,
 				Phone:          order.ShippingAddress.Phone,
 				AddressLine1:   order.ShippingAddress.Address,
@@ -191,9 +191,9 @@ func (s *OrderSyncService) importOrder(ctx context.Context, conn *models.Connect
 	}
 
 	// Build order data JSON
-	orderItems := make([]models.OrderItemJSON, len(order.Items))
+	orderItems := make([]domain.OrderItemJSON, len(order.Items))
 	for i, item := range order.Items {
-		orderItems[i] = models.OrderItemJSON{
+		orderItems[i] = domain.OrderItemJSON{
 			ExternalProductID: item.ExternalProductID,
 			SKU:               item.ExternalSKU,
 			Name:              item.Name,
@@ -202,13 +202,13 @@ func (s *OrderSyncService) importOrder(ctx context.Context, conn *models.Connect
 			TotalPrice:        item.TotalPrice,
 		}
 	}
-	orderData := models.OrderDataJSON{
+	orderData := domain.OrderDataJSON{
 		Items: orderItems,
 	}
 	orderDataJSON, _ := json.Marshal(orderData)
 
 	// Build buyer info JSON
-	buyerInfo := models.BuyerInfoJSON{
+	buyerInfo := domain.BuyerInfoJSON{
 		Name:   order.BuyerName,
 		UserID: order.BuyerID,
 		Phone:  order.ShippingAddress.Phone,
@@ -216,7 +216,7 @@ func (s *OrderSyncService) importOrder(ctx context.Context, conn *models.Connect
 	buyerInfoJSON, _ := json.Marshal(buyerInfo)
 
 	// Build shipping info JSON
-	shippingInfo := models.ShippingInfoJSON{
+	shippingInfo := domain.ShippingInfoJSON{
 		RecipientName:  order.ShippingAddress.Name,
 		Phone:          order.ShippingAddress.Phone,
 		AddressLine1:   order.ShippingAddress.Address,
@@ -231,7 +231,7 @@ func (s *OrderSyncService) importOrder(ctx context.Context, conn *models.Connect
 
 	// Create marketplace order record
 	now := time.Now()
-	mpOrder := &models.MarketplaceOrder{
+	mpOrder := &domain.MarketplaceOrder{
 		ConnectionID:    conn.ID,
 		ExternalOrderID: order.ExternalOrderID,
 		Platform:        conn.Platform,

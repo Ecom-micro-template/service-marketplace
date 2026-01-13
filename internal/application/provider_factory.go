@@ -19,7 +19,7 @@ import (
 
 // ProviderFactoryService creates marketplace providers with proper configuration.
 type ProviderFactoryService struct {
-	connectionRepo *repository.ConnectionRepository
+	connectionRepo *persistence.ConnectionRepository
 	encryptor      *utils.Encryptor
 	shopeeConfig   *ShopeeProviderConfig
 	tiktokConfig   *TikTokProviderConfig
@@ -52,7 +52,7 @@ type ProviderFactoryConfig struct {
 
 // NewProviderFactoryService creates a new provider factory service.
 func NewProviderFactoryService(
-	connectionRepo *repository.ConnectionRepository,
+	connectionRepo *persistence.ConnectionRepository,
 	cfg *ProviderFactoryConfig,
 	logger *zap.Logger,
 ) (*ProviderFactoryService, error) {
@@ -139,7 +139,7 @@ func (f *ProviderFactoryService) CreateTikTokProviderForConnection(ctx context.C
 }
 
 // createShopeeProviderFromConnection creates a Shopee provider from a connection model.
-func (f *ProviderFactoryService) createShopeeProviderFromConnection(ctx context.Context, conn *models.Connection) (*shopee.Provider, error) {
+func (f *ProviderFactoryService) createShopeeProviderFromConnection(ctx context.Context, conn *domain.Connection) (*shopee.Provider, error) {
 	if f.shopeeConfig == nil {
 		return nil, fmt.Errorf("Shopee configuration not provided")
 	}
@@ -187,7 +187,7 @@ func (f *ProviderFactoryService) createShopeeProviderFromConnection(ctx context.
 
 // createTikTokProviderFromConnection creates a TikTok auth provider from a connection model.
 // Note: TikTok provider implements a subset of MarketplaceProvider interface.
-func (f *ProviderFactoryService) createTikTokProviderFromConnection(ctx context.Context, conn *models.Connection) (*tiktok.AuthProvider, error) {
+func (f *ProviderFactoryService) createTikTokProviderFromConnection(ctx context.Context, conn *domain.Connection) (*tiktok.AuthProvider, error) {
 	if f.tiktokConfig == nil {
 		return nil, fmt.Errorf("TikTok configuration not provided")
 	}
@@ -211,7 +211,7 @@ func (f *ProviderFactoryService) createTikTokProviderFromConnection(ctx context.
 }
 
 // decryptTokens decrypts the access and refresh tokens from a connection.
-func (f *ProviderFactoryService) decryptTokens(conn *models.Connection) (accessToken, refreshToken string, err error) {
+func (f *ProviderFactoryService) decryptTokens(conn *domain.Connection) (accessToken, refreshToken string, err error) {
 	accessToken = conn.AccessToken
 	refreshToken = conn.RefreshToken
 

@@ -27,11 +27,11 @@ var (
 
 // ProductSyncService handles product synchronization
 type ProductSyncService struct {
-	connectionRepo        *repository.ConnectionRepository
-	productMappingRepo    *repository.ProductMappingRepository
-	categoryMappingRepo   *repository.CategoryMappingRepository
-	syncJobRepo           *repository.SyncJobRepository
-	importedProductRepo   *repository.ImportedProductRepository
+	connectionRepo        *persistence.ConnectionRepository
+	productMappingRepo    *persistence.ProductMappingRepository
+	categoryMappingRepo   *persistence.CategoryMappingRepository
+	syncJobRepo           *persistence.SyncJobRepository
+	importedProductRepo   *persistence.ImportedProductRepository
 	catalogClient         *clients.CatalogClient
 	encryptor             *utils.Encryptor
 	logger                *zap.Logger
@@ -53,11 +53,11 @@ type ProductSyncServiceConfig struct {
 
 // NewProductSyncService creates a new ProductSyncService
 func NewProductSyncService(
-	connectionRepo *repository.ConnectionRepository,
-	productMappingRepo *repository.ProductMappingRepository,
-	categoryMappingRepo *repository.CategoryMappingRepository,
-	syncJobRepo *repository.SyncJobRepository,
-	importedProductRepo *repository.ImportedProductRepository,
+	connectionRepo *persistence.ConnectionRepository,
+	productMappingRepo *persistence.ProductMappingRepository,
+	categoryMappingRepo *persistence.CategoryMappingRepository,
+	syncJobRepo *persistence.SyncJobRepository,
+	importedProductRepo *persistence.ImportedProductRepository,
 	catalogClient *clients.CatalogClient,
 	cfg *ProductSyncServiceConfig,
 	logger *zap.Logger,
@@ -108,12 +108,12 @@ func NewProductSyncService(
 }
 
 // GetMappedProducts retrieves product mappings for a connection
-func (s *ProductSyncService) GetMappedProducts(ctx context.Context, connectionID uuid.UUID, filter *models.ProductMappingFilter) ([]models.ProductMapping, int64, error) {
+func (s *ProductSyncService) GetMappedProducts(ctx context.Context, connectionID uuid.UUID, filter *domain.ProductMappingFilter) ([]domain.ProductMapping, int64, error) {
 	return s.productMappingRepo.GetByConnectionID(ctx, connectionID, filter)
 }
 
 // GetProductMapping retrieves a single product mapping
-func (s *ProductSyncService) GetProductMapping(ctx context.Context, mappingID uuid.UUID) (*models.ProductMapping, error) {
+func (s *ProductSyncService) GetProductMapping(ctx context.Context, mappingID uuid.UUID) (*domain.ProductMapping, error) {
 	return s.productMappingRepo.GetByID(ctx, mappingID)
 }
 
@@ -149,12 +149,12 @@ func (s *ProductSyncService) GetExternalCategories(ctx context.Context, connecti
 }
 
 // GetCategoryMappings retrieves category mappings for a connection
-func (s *ProductSyncService) GetCategoryMappings(ctx context.Context, connectionID uuid.UUID) ([]models.CategoryMapping, error) {
+func (s *ProductSyncService) GetCategoryMappings(ctx context.Context, connectionID uuid.UUID) ([]domain.CategoryMapping, error) {
 	return s.categoryMappingRepo.GetByConnectionID(ctx, connectionID)
 }
 
 // CreateCategoryMapping creates a new category mapping
-func (s *ProductSyncService) CreateCategoryMapping(ctx context.Context, connectionID uuid.UUID, req *models.CreateCategoryMappingRequest) (*models.CategoryMapping, error) {
+func (s *ProductSyncService) CreateCategoryMapping(ctx context.Context, connectionID uuid.UUID, req *domain.CreateCategoryMappingRequest) (*domain.CategoryMapping, error) {
 	// Verify connection exists
 	_, err := s.connectionRepo.GetByID(ctx, connectionID)
 	if err != nil {
@@ -173,7 +173,7 @@ func (s *ProductSyncService) CreateCategoryMapping(ctx context.Context, connecti
 		return existing, nil
 	}
 
-	mapping := &models.CategoryMapping{
+	mapping := &domain.CategoryMapping{
 		ConnectionID:         connectionID,
 		InternalCategoryID:   req.InternalCategoryID,
 		ExternalCategoryID:   req.ExternalCategoryID,
@@ -194,7 +194,7 @@ func (s *ProductSyncService) DeleteCategoryMapping(ctx context.Context, mappingI
 
 // PushProducts pushes products to a marketplace
 // If productIDs is empty, fetches all active products from catalog
-func (s *ProductSyncService) PushProducts(ctx context.Context, connectionID uuid.UUID, productIDs []string) (*models.SyncJob, error) {
+func (s *ProductSyncService) PushProducts(ctx context.Context, connectionID uuid.UUID, productIDs []string) (*domain.SyncJob, error) {
 	conn, err := s.connectionRepo.GetByID(ctx, connectionID)
 	if err != nil {
 		return nil, ErrConnectionNotFound
@@ -224,11 +224,11 @@ func (s *ProductSyncService) PushProducts(ctx context.Context, connectionID uuid
 		"push_all":    pushAll,
 	})
 
-	job := &models.SyncJob{
+	job := &domain.SyncJob{
 		ConnectionID: connectionID,
-		JobType:      models.JobTypeProductPush,
+		JobType:      domain.JobTypeProductPush,
 		Payload:      payload,
-		Status:       models.JobStatusPending,
+		Status:       domain.JobStatusPending,
 		MaxAttempts:  3,
 	}
 
@@ -243,7 +243,7 @@ func (s *ProductSyncService) PushProducts(ctx context.Context, connectionID uuid
 }
 
 // processProductPushJob processes a product push job
-func (s *ProductSyncService) processProductPushJob(ctx context.Context, job *models.SyncJob, conn *models.Connection) {
+func (s *ProductSyncService) processProductPushJob(ctx context.Context, job *domain.SyncJob, conn *domain.Connection) {
 	// Mark as processing
 	if err := s.syncJobRepo.MarkProcessing(ctx, job.ID); err != nil {
 		s.logger.Error("Failed to mark job as processing", zap.Error(err))
@@ -349,10 +349,10 @@ func (s *ProductSyncService) processProductPushJob(ctx context.Context, job *mod
 
 			// Create/update mapping with error
 			productID, _ := uuid.Parse(product.ID)
-			mapping := &models.ProductMapping{
+			mapping := &domain.ProductMapping{
 				ConnectionID:      job.ConnectionID,
 				InternalProductID: productID,
-				SyncStatus:        models.SyncStatusError,
+				SyncStatus:        domain.SyncStatusError,
 				SyncError:         err.Error(),
 			}
 			s.productMappingRepo.Create(ctx, mapping)
@@ -361,19 +361,19 @@ func (s *ProductSyncService) processProductPushJob(ctx context.Context, job *mod
 
 		// Create/update product mapping
 		productID, _ := uuid.Parse(product.ID)
-		mapping := &models.ProductMapping{
+		mapping := &domain.ProductMapping{
 			ConnectionID:      job.ConnectionID,
 			InternalProductID: productID,
 			ExternalProductID: resp.ExternalProductID,
 			ExternalSKU:       resp.ExternalSKU,
-			SyncStatus:        models.SyncStatusSynced,
+			SyncStatus:        domain.SyncStatusSynced,
 		}
 
 		existing, _ := s.productMappingRepo.GetByConnectionAndInternalProduct(ctx, job.ConnectionID, productID)
 		if existing != nil {
 			existing.ExternalProductID = resp.ExternalProductID
 			existing.ExternalSKU = resp.ExternalSKU
-			existing.SyncStatus = models.SyncStatusSynced
+			existing.SyncStatus = domain.SyncStatusSynced
 			existing.SyncError = ""
 			s.productMappingRepo.Update(ctx, existing)
 		} else {
@@ -437,7 +437,7 @@ func (s *ProductSyncService) ImportProducts(ctx context.Context, connectionID uu
 }
 
 // importShopeeProducts imports products from Shopee
-func (s *ProductSyncService) importShopeeProducts(ctx context.Context, conn *models.Connection, accessToken string) (int, error) {
+func (s *ProductSyncService) importShopeeProducts(ctx context.Context, conn *domain.Connection, accessToken string) (int, error) {
 	shopID, _ := strconv.ParseInt(conn.ShopID, 10, 64)
 	_, productProvider := s.shopeeClientFactory(accessToken, shopID)
 
@@ -464,7 +464,7 @@ func (s *ProductSyncService) importShopeeProducts(ctx context.Context, conn *mod
 	}
 
 	// Get item details in batches of 50
-	var importedProducts []models.ImportedProduct
+	var importedProducts []domain.ImportedProduct
 	for i := 0; i < len(allItems); i += 50 {
 		end := i + 50
 		if end > len(allItems) {
@@ -491,7 +491,7 @@ func (s *ProductSyncService) importShopeeProducts(ctx context.Context, conn *mod
 				imageURL = detail.Images[0]
 			}
 
-			importedProducts = append(importedProducts, models.ImportedProduct{
+			importedProducts = append(importedProducts, domain.ImportedProduct{
 				ConnectionID:      conn.ID,
 				ExternalProductID: strconv.FormatInt(detail.ItemID, 10),
 				ExternalSKU:       detail.ItemSKU,
@@ -528,12 +528,12 @@ func (s *ProductSyncService) importShopeeProducts(ctx context.Context, conn *mod
 }
 
 // GetImportedProducts retrieves imported products for a connection
-func (s *ProductSyncService) GetImportedProducts(ctx context.Context, connectionID uuid.UUID, filter *models.ImportedProductFilter) ([]models.ImportedProduct, int64, error) {
+func (s *ProductSyncService) GetImportedProducts(ctx context.Context, connectionID uuid.UUID, filter *domain.ImportedProductFilter) ([]domain.ImportedProduct, int64, error) {
 	return s.importedProductRepo.GetByConnectionID(ctx, connectionID, filter)
 }
 
 // CreateManualMapping creates a manual mapping between an imported product and an internal product
-func (s *ProductSyncService) CreateManualMapping(ctx context.Context, connectionID uuid.UUID, importedProductID uuid.UUID, internalProductID uuid.UUID) (*models.ProductMapping, error) {
+func (s *ProductSyncService) CreateManualMapping(ctx context.Context, connectionID uuid.UUID, importedProductID uuid.UUID, internalProductID uuid.UUID) (*domain.ProductMapping, error) {
 	// Verify connection exists
 	_, err := s.connectionRepo.GetByID(ctx, connectionID)
 	if err != nil {
@@ -559,12 +559,12 @@ func (s *ProductSyncService) CreateManualMapping(ctx context.Context, connection
 	}
 
 	// Create the mapping
-	mapping := &models.ProductMapping{
+	mapping := &domain.ProductMapping{
 		ConnectionID:      connectionID,
 		InternalProductID: internalProductID,
 		ExternalProductID: importedProduct.ExternalProductID,
 		ExternalSKU:       importedProduct.ExternalSKU,
-		SyncStatus:        models.SyncStatusSynced,
+		SyncStatus:        domain.SyncStatusSynced,
 	}
 
 	if err := s.productMappingRepo.Create(ctx, mapping); err != nil {

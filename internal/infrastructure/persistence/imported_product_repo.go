@@ -1,4 +1,4 @@
-package repository
+package persistence
 
 import (
 	"context"
@@ -20,7 +20,7 @@ func NewImportedProductRepository(db *gorm.DB) *ImportedProductRepository {
 }
 
 // Upsert creates or updates an imported product
-func (r *ImportedProductRepository) Upsert(ctx context.Context, product *models.ImportedProduct) error {
+func (r *ImportedProductRepository) Upsert(ctx context.Context, product *domain.ImportedProduct) error {
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "connection_id"}, {Name: "external_product_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"name", "description", "price", "stock", "category_id", "status", "image_url", "external_sku", "updated_at"}),
@@ -28,7 +28,7 @@ func (r *ImportedProductRepository) Upsert(ctx context.Context, product *models.
 }
 
 // UpsertBatch creates or updates multiple imported products in a batch
-func (r *ImportedProductRepository) UpsertBatch(ctx context.Context, products []models.ImportedProduct) error {
+func (r *ImportedProductRepository) UpsertBatch(ctx context.Context, products []domain.ImportedProduct) error {
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "connection_id"}, {Name: "external_product_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"name", "description", "price", "stock", "category_id", "status", "image_url", "external_sku", "updated_at"}),
@@ -36,8 +36,8 @@ func (r *ImportedProductRepository) UpsertBatch(ctx context.Context, products []
 }
 
 // GetByID retrieves an imported product by ID
-func (r *ImportedProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.ImportedProduct, error) {
-	var product models.ImportedProduct
+func (r *ImportedProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.ImportedProduct, error) {
+	var product domain.ImportedProduct
 	err := r.db.WithContext(ctx).First(&product, "id = ?", id).Error
 	if err != nil {
 		return nil, err
@@ -46,11 +46,11 @@ func (r *ImportedProductRepository) GetByID(ctx context.Context, id uuid.UUID) (
 }
 
 // GetByConnectionID retrieves all imported products for a connection
-func (r *ImportedProductRepository) GetByConnectionID(ctx context.Context, connectionID uuid.UUID, filter *models.ImportedProductFilter) ([]models.ImportedProduct, int64, error) {
-	var products []models.ImportedProduct
+func (r *ImportedProductRepository) GetByConnectionID(ctx context.Context, connectionID uuid.UUID, filter *domain.ImportedProductFilter) ([]domain.ImportedProduct, int64, error) {
+	var products []domain.ImportedProduct
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&models.ImportedProduct{}).Where("connection_id = ?", connectionID)
+	query := r.db.WithContext(ctx).Model(&domain.ImportedProduct{}).Where("connection_id = ?", connectionID)
 
 	if filter != nil {
 		if filter.IsMapped != nil {
@@ -92,8 +92,8 @@ func (r *ImportedProductRepository) GetByConnectionID(ctx context.Context, conne
 }
 
 // GetByExternalProductID retrieves an imported product by connection and external product ID
-func (r *ImportedProductRepository) GetByExternalProductID(ctx context.Context, connectionID uuid.UUID, externalProductID string) (*models.ImportedProduct, error) {
-	var product models.ImportedProduct
+func (r *ImportedProductRepository) GetByExternalProductID(ctx context.Context, connectionID uuid.UUID, externalProductID string) (*domain.ImportedProduct, error) {
+	var product domain.ImportedProduct
 	err := r.db.WithContext(ctx).
 		Where("connection_id = ? AND external_product_id = ?", connectionID, externalProductID).
 		First(&product).Error
@@ -106,7 +106,7 @@ func (r *ImportedProductRepository) GetByExternalProductID(ctx context.Context, 
 // SetMapped marks an imported product as mapped to an internal product
 func (r *ImportedProductRepository) SetMapped(ctx context.Context, id uuid.UUID, internalProductID uuid.UUID) error {
 	return r.db.WithContext(ctx).
-		Model(&models.ImportedProduct{}).
+		Model(&domain.ImportedProduct{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"is_mapped":            true,
@@ -117,7 +117,7 @@ func (r *ImportedProductRepository) SetMapped(ctx context.Context, id uuid.UUID,
 // SetUnmapped marks an imported product as unmapped
 func (r *ImportedProductRepository) SetUnmapped(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).
-		Model(&models.ImportedProduct{}).
+		Model(&domain.ImportedProduct{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"is_mapped":            false,
@@ -127,21 +127,21 @@ func (r *ImportedProductRepository) SetUnmapped(ctx context.Context, id uuid.UUI
 
 // Delete deletes an imported product
 func (r *ImportedProductRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&models.ImportedProduct{}, "id = ?", id).Error
+	return r.db.WithContext(ctx).Delete(&domain.ImportedProduct{}, "id = ?", id).Error
 }
 
 // DeleteByConnectionID deletes all imported products for a connection
 func (r *ImportedProductRepository) DeleteByConnectionID(ctx context.Context, connectionID uuid.UUID) error {
 	return r.db.WithContext(ctx).
 		Where("connection_id = ?", connectionID).
-		Delete(&models.ImportedProduct{}).Error
+		Delete(&domain.ImportedProduct{}).Error
 }
 
 // GetUnmappedCount returns count of unmapped products
 func (r *ImportedProductRepository) GetUnmappedCount(ctx context.Context, connectionID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
-		Model(&models.ImportedProduct{}).
+		Model(&domain.ImportedProduct{}).
 		Where("connection_id = ? AND is_mapped = false", connectionID).
 		Count(&count).Error
 	return count, err

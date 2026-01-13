@@ -1,4 +1,4 @@
-package repository
+package persistence
 
 import (
 	"context"
@@ -20,13 +20,13 @@ func NewMarketplaceOrderRepository(db *gorm.DB) *MarketplaceOrderRepository {
 }
 
 // Create creates a new marketplace order
-func (r *MarketplaceOrderRepository) Create(ctx context.Context, order *models.MarketplaceOrder) error {
+func (r *MarketplaceOrderRepository) Create(ctx context.Context, order *domain.MarketplaceOrder) error {
 	return r.db.WithContext(ctx).Create(order).Error
 }
 
 // GetByID retrieves an order by ID
-func (r *MarketplaceOrderRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.MarketplaceOrder, error) {
-	var order models.MarketplaceOrder
+func (r *MarketplaceOrderRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.MarketplaceOrder, error) {
+	var order domain.MarketplaceOrder
 	err := r.db.WithContext(ctx).
 		Preload("Connection").
 		First(&order, "id = ?", id).Error
@@ -37,8 +37,8 @@ func (r *MarketplaceOrderRepository) GetByID(ctx context.Context, id uuid.UUID) 
 }
 
 // GetByExternalOrderID retrieves an order by external order ID and connection
-func (r *MarketplaceOrderRepository) GetByExternalOrderID(ctx context.Context, connectionID uuid.UUID, externalOrderID string) (*models.MarketplaceOrder, error) {
-	var order models.MarketplaceOrder
+func (r *MarketplaceOrderRepository) GetByExternalOrderID(ctx context.Context, connectionID uuid.UUID, externalOrderID string) (*domain.MarketplaceOrder, error) {
+	var order domain.MarketplaceOrder
 	err := r.db.WithContext(ctx).
 		Where("connection_id = ? AND external_order_id = ?", connectionID, externalOrderID).
 		First(&order).Error
@@ -49,8 +49,8 @@ func (r *MarketplaceOrderRepository) GetByExternalOrderID(ctx context.Context, c
 }
 
 // GetByInternalOrderID retrieves an order by internal order ID
-func (r *MarketplaceOrderRepository) GetByInternalOrderID(ctx context.Context, internalOrderID uuid.UUID) (*models.MarketplaceOrder, error) {
-	var order models.MarketplaceOrder
+func (r *MarketplaceOrderRepository) GetByInternalOrderID(ctx context.Context, internalOrderID uuid.UUID) (*domain.MarketplaceOrder, error) {
+	var order domain.MarketplaceOrder
 	err := r.db.WithContext(ctx).
 		Preload("Connection").
 		Where("internal_order_id = ?", internalOrderID).
@@ -62,11 +62,11 @@ func (r *MarketplaceOrderRepository) GetByInternalOrderID(ctx context.Context, i
 }
 
 // GetByConnectionID retrieves orders by connection with filters
-func (r *MarketplaceOrderRepository) GetByConnectionID(ctx context.Context, connectionID uuid.UUID, filter *models.MarketplaceOrderFilter) ([]models.MarketplaceOrder, int64, error) {
-	var orders []models.MarketplaceOrder
+func (r *MarketplaceOrderRepository) GetByConnectionID(ctx context.Context, connectionID uuid.UUID, filter *domain.MarketplaceOrderFilter) ([]domain.MarketplaceOrder, int64, error) {
+	var orders []domain.MarketplaceOrder
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&models.MarketplaceOrder{}).Where("connection_id = ?", connectionID)
+	query := r.db.WithContext(ctx).Model(&domain.MarketplaceOrder{}).Where("connection_id = ?", connectionID)
 
 	if filter != nil {
 		if filter.Status != "" {
@@ -114,11 +114,11 @@ func (r *MarketplaceOrderRepository) GetByConnectionID(ctx context.Context, conn
 }
 
 // GetAllByPlatform retrieves orders by platform
-func (r *MarketplaceOrderRepository) GetAllByPlatform(ctx context.Context, platform string, filter *models.MarketplaceOrderFilter) ([]models.MarketplaceOrder, int64, error) {
-	var orders []models.MarketplaceOrder
+func (r *MarketplaceOrderRepository) GetAllByPlatform(ctx context.Context, platform string, filter *domain.MarketplaceOrderFilter) ([]domain.MarketplaceOrder, int64, error) {
+	var orders []domain.MarketplaceOrder
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&models.MarketplaceOrder{}).
+	query := r.db.WithContext(ctx).Model(&domain.MarketplaceOrder{}).
 		Preload("Connection").
 		Where("platform = ?", platform)
 
@@ -160,14 +160,14 @@ func (r *MarketplaceOrderRepository) GetAllByPlatform(ctx context.Context, platf
 }
 
 // Update updates a marketplace order
-func (r *MarketplaceOrderRepository) Update(ctx context.Context, order *models.MarketplaceOrder) error {
+func (r *MarketplaceOrderRepository) Update(ctx context.Context, order *domain.MarketplaceOrder) error {
 	return r.db.WithContext(ctx).Save(order).Error
 }
 
 // UpdateStatus updates the status of an order
 func (r *MarketplaceOrderRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	return r.db.WithContext(ctx).
-		Model(&models.MarketplaceOrder{}).
+		Model(&domain.MarketplaceOrder{}).
 		Where("id = ?", id).
 		Update("status", status).Error
 }
@@ -176,7 +176,7 @@ func (r *MarketplaceOrderRepository) UpdateStatus(ctx context.Context, id uuid.U
 func (r *MarketplaceOrderRepository) LinkToInternalOrder(ctx context.Context, id, internalOrderID uuid.UUID) error {
 	now := time.Now()
 	return r.db.WithContext(ctx).
-		Model(&models.MarketplaceOrder{}).
+		Model(&domain.MarketplaceOrder{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"internal_order_id": internalOrderID,
@@ -186,12 +186,12 @@ func (r *MarketplaceOrderRepository) LinkToInternalOrder(ctx context.Context, id
 
 // Delete deletes a marketplace order
 func (r *MarketplaceOrderRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&models.MarketplaceOrder{}, "id = ?", id).Error
+	return r.db.WithContext(ctx).Delete(&domain.MarketplaceOrder{}, "id = ?", id).Error
 }
 
 // GetUnimportedOrders retrieves orders that haven't been imported yet
-func (r *MarketplaceOrderRepository) GetUnimportedOrders(ctx context.Context, connectionID uuid.UUID) ([]models.MarketplaceOrder, error) {
-	var orders []models.MarketplaceOrder
+func (r *MarketplaceOrderRepository) GetUnimportedOrders(ctx context.Context, connectionID uuid.UUID) ([]domain.MarketplaceOrder, error) {
+	var orders []domain.MarketplaceOrder
 	err := r.db.WithContext(ctx).
 		Where("connection_id = ? AND internal_order_id IS NULL", connectionID).
 		Order("created_at ASC").
@@ -208,19 +208,19 @@ func (r *MarketplaceOrderRepository) GetOrderStats(ctx context.Context, connecti
 		TotalRevenue   float64 `json:"total_revenue"`
 	}
 
-	r.db.WithContext(ctx).Model(&models.MarketplaceOrder{}).
+	r.db.WithContext(ctx).Model(&domain.MarketplaceOrder{}).
 		Where("connection_id = ?", connectionID).
 		Count(&stats.TotalOrders)
 
-	r.db.WithContext(ctx).Model(&models.MarketplaceOrder{}).
+	r.db.WithContext(ctx).Model(&domain.MarketplaceOrder{}).
 		Where("connection_id = ? AND internal_order_id IS NOT NULL", connectionID).
 		Count(&stats.ImportedOrders)
 
-	r.db.WithContext(ctx).Model(&models.MarketplaceOrder{}).
+	r.db.WithContext(ctx).Model(&domain.MarketplaceOrder{}).
 		Where("connection_id = ? AND internal_order_id IS NULL", connectionID).
 		Count(&stats.PendingOrders)
 
-	r.db.WithContext(ctx).Model(&models.MarketplaceOrder{}).
+	r.db.WithContext(ctx).Model(&domain.MarketplaceOrder{}).
 		Where("connection_id = ?", connectionID).
 		Select("COALESCE(SUM(total_amount), 0)").
 		Scan(&stats.TotalRevenue)

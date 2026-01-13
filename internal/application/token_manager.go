@@ -27,7 +27,7 @@ type TokenManagerConfig struct {
 
 // TokenManager handles automatic token refresh for marketplace connections.
 type TokenManager struct {
-	repo      *repository.ConnectionRepository
+	repo      *persistence.ConnectionRepository
 	encryptor *utils.Encryptor
 	config    TokenManagerConfig
 	logger    *zap.Logger
@@ -44,7 +44,7 @@ type TokenManager struct {
 
 // NewTokenManager creates a new token manager service.
 func NewTokenManager(
-	repo *repository.ConnectionRepository,
+	repo *persistence.ConnectionRepository,
 	cfg TokenManagerConfig,
 	logger *zap.Logger,
 ) (*TokenManager, error) {
@@ -188,7 +188,7 @@ func (tm *TokenManager) checkAndRefreshTokens(ctx context.Context) {
 }
 
 // refreshConnection refreshes the token for a single connection.
-func (tm *TokenManager) refreshConnection(ctx context.Context, conn *models.Connection) error {
+func (tm *TokenManager) refreshConnection(ctx context.Context, conn *domain.Connection) error {
 	// Decrypt refresh token
 	refreshToken := conn.RefreshToken
 	if tm.encryptor != nil && refreshToken != "" {

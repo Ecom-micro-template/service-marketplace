@@ -35,7 +35,7 @@ func (h *ProductHandler) GetMappedProducts(c *gin.Context) {
 		return
 	}
 
-	filter := &models.ProductMappingFilter{
+	filter := &domain.ProductMappingFilter{
 		SyncStatus: c.Query("status"),
 		Page:       1,
 		PageSize:   20,
@@ -183,7 +183,7 @@ func (h *ProductHandler) GetImportedProducts(c *gin.Context) {
 		return
 	}
 
-	filter := &models.ImportedProductFilter{
+	filter := &domain.ImportedProductFilter{
 		Page:     1,
 		PageSize: 20,
 	}

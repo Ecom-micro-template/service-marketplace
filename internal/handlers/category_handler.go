@@ -97,7 +97,7 @@ func (h *CategoryHandler) CreateCategoryMapping(c *gin.Context) {
 		return
 	}
 
-	mapping, err := h.service.CreateCategoryMapping(c.Request.Context(), connectionID, &models.CreateCategoryMappingRequest{
+	mapping, err := h.service.CreateCategoryMapping(c.Request.Context(), connectionID, &domain.CreateCategoryMappingRequest{
 		InternalCategoryID:   internalCatID,
 		ExternalCategoryID:   req.ExternalCategoryID,
 		ExternalCategoryName: req.ExternalCategoryName,
